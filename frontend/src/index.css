@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --bg-gradient: radial-gradient(circle at 50% 0%, #1a1e29 0%, #06080d 100%);
+  --panel-bg: linear-gradient(145deg, rgba(23, 27, 36, 0.7) 0%, rgba(10, 12, 16, 0.9) 100%);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --accent: #3b82f6;
+  --canvas-bg: #000000;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='light'] {
+  --bg-gradient: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --panel-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.95) 100%);
+  --panel-border: rgba(0, 0, 0, 0.05);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --accent: #4f46e5;
+  --canvas-bg: #ffffff;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.1);
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-gradient);
+  color: var(--text-primary);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  transition: background 0.5s ease, color 0.5s ease;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+}
+
+.glass-list-item {
+  background: transparent;
+  border-bottom: 1px solid var(--panel-border);
+  transition: all 0.2s ease;
+}
+
+.glass-list-item:hover {
+  background: rgba(var(--accent), 0.05);
+}
+
+.glass-list-item.active {
+  background: linear-gradient(90deg, rgba(var(--accent), 0.1) 0%, transparent 100%);
+  border-left: 3px solid var(--accent);
+}
+
+.color-wheel {
+  background: conic-gradient(from 90deg, red, #ff8000, yellow, #80ff00, lime, #00ff80, cyan, #0080ff, blue, #8000ff, magenta, #ff0080, red);
+}
+
+.text-gradient {
+  background: linear-gradient(to right, var(--text-primary), var(--text-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Dwelling Indicator */
+.dwelling-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.canvas-container {
+  background: var(--canvas-bg);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  transition: background 0.5s ease;
+}
