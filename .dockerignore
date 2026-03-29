@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist
+build
+
+# Environment files (keep .env.example instead)
+.env
+.env.local
+.env.production
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Logs
+logs
+*.log
+error_log.txt
+
+# ML/Training data (large)
+ml/dataset
+ml/model
+ml/model-word
+ml/train
+
+# Documentation
+README.md
+PHASE1_IMPLEMENTATION.md
+*.md
+
+# Misc
+.DS_Store
+Thumbs.db

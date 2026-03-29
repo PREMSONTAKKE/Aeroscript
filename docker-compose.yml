@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: aeroscript-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: aeroscript
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - aeroscript-net
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: aeroscript-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5002
+      MONGODB_URI: mongodb://mongodb:27017/aeroscript
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production-to-a-secure-random-string}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "5002:5002"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - aeroscript-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: aeroscript-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    networks:
+      - aeroscript-net
+
+volumes:
+  mongo-data:
+
+networks:
+  aeroscript-net:
+    driver: bridge
