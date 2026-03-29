@@ -10,8 +10,5 @@ server/ml/dataset
 server/ml/model
 server/ml/model-word
 server/ml/train
-ml/dataset/emnist/raw
-ml/dataset/emnist/processed
-
 __pycache__/
 *.pyc
