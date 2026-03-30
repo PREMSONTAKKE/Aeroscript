@@ -659,6 +659,15 @@ app.put('/api/sessions/:id', auth, async (req, res) => {
 const partyRoutes = require('./routes/party');
 app.use('/api/party', partyRoutes);
 
+const brushPresetRoutes = require('./routes/brushPresets');
+app.use('/api/brush-presets', brushPresetRoutes);
+
+const profileRoutes = require('./routes/profile');
+app.use('/api/profile', profileRoutes);
+
+const shareRoutes = require('./routes/share');
+app.use('/api/share', shareRoutes);
+
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AeroScript Server V2.5.1 [HOTFIX-APPLIED]`);
