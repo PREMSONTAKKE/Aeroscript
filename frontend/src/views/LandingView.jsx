@@ -4,15 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { PenTool, Palette, Type, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CursorTrail from '../components/AeroCanvas/CursorTrail';
+import { LARGE_STAR_POSITIONS } from '../utils/starField';
 
 const MotionDiv = motion.div;
 const MotionHeading = motion.h2;
 const MotionParagraph = motion.p;
-const STAR_POSITIONS = Array.from({ length: 30 }, () => ({
-  top: `${Math.random() * 100}%`,
-  left: `${Math.random() * 100}%`,
-  animationDelay: `${Math.random() * 5}s`
-}));
 
 const ModeCard = ({ title, description, icon: Icon, mode, onClick, colorClass }) => (
   <MotionDiv
@@ -75,7 +71,7 @@ const LandingView = () => {
       
       {/* Background Star Effect */}
       <div className="absolute inset-0 opacity-20 pointer-events-none">
-        {STAR_POSITIONS.map((star, i) => (
+        {LARGE_STAR_POSITIONS.map((star, i) => (
           <div key={i} className="star animate-pulse" style={{
             top: star.top,
             left: star.left,

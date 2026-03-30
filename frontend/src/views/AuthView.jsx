@@ -4,14 +4,10 @@ import { Mail, Key } from 'lucide-react';
 import CursorTrail from '../components/AeroCanvas/CursorTrail';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config/api';
+import { STAR_POSITIONS } from '../utils/starField';
 
 const MotionDiv = motion.div;
 const MotionP = motion.p;
-const STAR_POSITIONS = Array.from({ length: 50 }, () => ({
-  top: `${Math.random() * 100}%`,
-  left: `${Math.random() * 100}%`,
-  animationDelay: `${Math.random() * 5}s`
-}));
 
 const AuthView = () => {
   const { login } = useAuth();

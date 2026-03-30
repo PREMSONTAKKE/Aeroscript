@@ -1,53 +1,30 @@
 import React from 'react';
-import { Camera, CircleDot, Hand, ScanSearch } from 'lucide-react';
+import { Camera, Hand, Lightbulb } from 'lucide-react';
 
-function HandStatusPanel({ enabled, connected, handState, inputMode = 'mouse' }) {
-  const inputLabel = inputMode === 'camera'
-    ? 'Camera'
-    : inputMode === 'touch'
-      ? 'Touch Screen'
-      : inputMode === 'screen'
-        ? 'Screen Canvas'
-        : 'Mouse / Touchpad';
-
-  const statusLabel = !enabled
-    ? 'Hand tracking is off.'
-    : connected
-      ? handState.isVisible
-        ? handState.isDrawing
-          ? 'Index-only gesture is drawing.'
-          : 'Hand detected. Raise only index finger to draw.'
-        : 'Camera input is ready. Show your hand to begin.'
-      : 'Hand input is unavailable right now.';
-
-  const gestureHint = handState.isVisible
-    ? `Visible fingers: ${handState.fingersCount}. Index only draws, multiple fingers pause input.`
-    : 'Keep your hand centered and well lit for steadier tracking.';
+function HandStatusPanel({ enabled, connected, handState }) {
+  const cameraColor = connected ? 'text-emerald-400' : enabled ? 'text-amber-400' : 'text-slate-500';
+  const gestureColor = !enabled ? 'text-slate-500' : handState.isVisible ? handState.isDrawing ? 'text-cyan-400' : 'text-emerald-400' : 'text-amber-400';
+  const tipColor = handState.isVisible && handState.fingersCount > 1 ? 'text-amber-400' : 'text-cyan-300';
 
   return (
-    <div className="mb-4 grid gap-3 md:grid-cols-3">
-      <div className="rounded-2xl border border-white/8 bg-white/5 p-4">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-slate-500">
-          <Camera size={14} /> Camera Link
-        </div>
-        <div className="mt-3 text-sm text-white">{connected ? 'Connected' : 'Offline'}</div>
-        <div className="mt-1 text-xs text-slate-400">{enabled ? 'Waiting for live camera input.' : `Primary input: ${inputLabel}.`}</div>
+    <div className="mb-3 flex items-center justify-center gap-4 text-xs">
+      <div className="flex items-center gap-1.5" title={enabled ? 'Camera connected' : 'Camera offline'}>
+        <Camera size={14} className={cameraColor} />
+        <span className={cameraColor}>{connected ? 'Live' : 'Off'}</span>
       </div>
-      <div className="rounded-2xl border border-white/8 bg-white/5 p-4">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-slate-500">
-          <Hand size={14} /> Gesture State
-        </div>
-        <div className="mt-3 text-sm text-white">{statusLabel}</div>
-        <div className="mt-1 text-xs text-slate-400">{gestureHint}</div>
+      <div className="h-3 w-px bg-white/10" />
+      <div className="flex items-center gap-1.5" title={!enabled ? 'Hand tracking off' : handState.isVisible ? handState.isDrawing ? 'Drawing with index' : 'Index finger ready' : 'Show hand to camera'}>
+        <Hand size={14} className={gestureColor} />
+        <span className={gestureColor}>
+          {!enabled ? 'Off' : handState.isVisible ? handState.isDrawing ? 'Drawing' : 'Ready' : 'No hand'}
+        </span>
       </div>
-      <div className="rounded-2xl border border-white/8 bg-white/5 p-4">
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-slate-500">
-          <ScanSearch size={14} /> Tracking Tips
-        </div>
-        <div className="mt-3 flex items-start gap-2 text-sm text-white">
-          <CircleDot size={14} className="mt-0.5 shrink-0 text-cyan-300" />
-          <span>Hold a peace sign or lower fingers to stop drawing before switching tools or modes.</span>
-        </div>
+      <div className="h-3 w-px bg-white/10" />
+      <div className="flex items-center gap-1.5" title="Keep hand steady for best tracking">
+        <Lightbulb size={14} className={tipColor} />
+        <span className={tipColor}>
+          {handState.isVisible && handState.fingersCount > 1 ? 'Fingers!' : 'Steady'}
+        </span>
       </div>
     </div>
   );

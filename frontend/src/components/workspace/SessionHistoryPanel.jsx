@@ -1,31 +1,23 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FolderOpen, RefreshCw, Trash2 } from 'lucide-react';
-import ModeInsightsCard from './ModeInsightsCard';
 
 function SessionHistoryPanel({
-  modeConfig,
   sessions,
   activeSessionId,
   isLoading,
-  isDirty,
   onRefresh,
   onLoad,
   onDelete
 }) {
   return (
-    <aside className="glass-panel flex min-h-0 flex-col rounded-[28px] p-5">
+    <aside className="glass-panel flex min-h-0 flex-col rounded-none p-5">
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">History</p>
-          <h2 className="text-lg font-semibold text-white">Saved Sessions</h2>
-        </div>
+        <h2 className="text-lg font-semibold text-white">Saved Sessions</h2>
         <button onClick={onRefresh} className="rounded-xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10">
           <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
         </button>
       </div>
-
-      <ModeInsightsCard modeConfig={modeConfig} isDirty={isDirty} />
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         <AnimatePresence>
@@ -55,7 +47,6 @@ function SessionHistoryPanel({
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium text-white">{session.name}</div>
                       <div className="mt-1 text-xs text-slate-400">{new Date(session.createdAt).toLocaleString()}</div>
-                      <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-slate-500">{session.mode}</div>
                     </div>
                   </div>
                 </button>
@@ -74,7 +65,7 @@ function SessionHistoryPanel({
 
         {!sessions.length && !isLoading && (
           <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-6 text-center text-sm text-slate-400">
-            No saved sessions yet for this mode.
+            There are no saved sessions for this mode
           </div>
         )}
       </div>
