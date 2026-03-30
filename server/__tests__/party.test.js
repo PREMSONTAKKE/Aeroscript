@@ -1,10 +1,23 @@
+process.env.JWT_SECRET = 'test-secret';
+
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const partyRoutes = require('../routes/party');
 
-jest.mock('../models/Party', () => {
-  const mockParty = {
+jest.mock('../models/Party');
+
+const Party = require('../models/Party');
+
+describe('Party Routes', () => {
+  let app;
+  const JWT_SECRET = 'test-secret';
+
+  const generateToken = (userId = 'user123', email = 'test@test.com') => {
+    return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '1h' });
+  };
+
+  const createMockParty = (overrides = {}) => ({
+    _id: 'party-id',
     code: 'TEST12',
     host: 'user123',
     name: 'Test Party',
@@ -13,30 +26,53 @@ jest.mock('../models/Party', () => {
     isActive: true,
     isLocked: false,
     save: jest.fn().mockResolvedValue(true),
-    findOne: jest.fn(),
-  };
-  return {
-    __esModule: true,
-    default: mockParty,
-  };
-});
+    ...overrides,
+  });
 
-describe('Party Routes', () => {
-  let app;
-  const JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
-
-  const generateToken = (userId = 'user123', email = 'test@test.com') => {
-    return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '1h' });
+  const mockFindOne = (party = createMockParty()) => {
+    const chainable = {
+      populate: jest.fn().mockReturnThis(),
+      then: jest.fn((resolve) => resolve(party)),
+    };
+    Party.findOne = jest.fn().mockReturnValue(chainable);
+    return chainable;
   };
+
+  const mockFindOneWithPopulate = (party) => {
+    const chainable = {
+      populate: jest.fn().mockReturnThis(),
+      then: jest.fn((resolve) => resolve(party)),
+    };
+    Party.findOne = jest.fn().mockReturnValue(chainable);
+    return chainable;
+  };
+
+  Party.mockImplementation((data) => ({
+    ...data,
+    _id: 'new-party-id',
+    code: data.code,
+    host: data.host,
+    name: data.name,
+    members: data.members,
+    maxMembers: 10,
+    isActive: true,
+    isLocked: false,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    save: jest.fn().mockResolvedValue(true),
+  }));
 
   beforeEach(() => {
     app = express();
     app.use(express.json());
-    app.use('/party', partyRoutes);
+    app.use('/party', require('../routes/party'));
+    jest.clearAllMocks();
+    mockFindOne();
   });
 
   describe('POST /party/create', () => {
     it('should create a party with valid token', async () => {
+      mockFindOneWithPopulate(null);
       const token = generateToken();
       
       const response = await request(app)
@@ -71,6 +107,7 @@ describe('Party Routes', () => {
 
   describe('POST /party/join', () => {
     it('should join a party with valid code', async () => {
+      mockFindOneWithPopulate(createMockParty({ members: [] }));
       const token = generateToken();
       
       const response = await request(app)
@@ -83,11 +120,9 @@ describe('Party Routes', () => {
     });
 
     it('should reject invalid party code', async () => {
+      mockFindOneWithPopulate(null);
       const token = generateToken();
       
-      const Party = require('../models/Party');
-      Party.findOne.mockResolvedValue(null);
-
       const response = await request(app)
         .post('/party/join')
         .set('Authorization', `Bearer ${token}`)
@@ -110,6 +145,13 @@ describe('Party Routes', () => {
 
   describe('POST /party/:code/kick', () => {
     it('should allow host to kick a member', async () => {
+      Party.findOne.mockResolvedValue(createMockParty({
+        host: 'hostuser',
+        members: [
+          { user: 'hostuser', name: 'host@test.com' },
+          { user: 'member123', name: 'member@test.com' }
+        ]
+      }));
       const token = generateToken('hostuser', 'host@test.com');
       
       const response = await request(app)
@@ -121,6 +163,10 @@ describe('Party Routes', () => {
     });
 
     it('should reject non-host from kicking', async () => {
+      Party.findOne.mockResolvedValue(createMockParty({
+        host: 'hostuser',
+        members: [{ user: 'nothost', name: 'not@test.com' }]
+      }));
       const token = generateToken('nothost', 'not@test.com');
       
       const response = await request(app)
@@ -134,6 +180,11 @@ describe('Party Routes', () => {
 
   describe('POST /party/:code/lock', () => {
     it('should allow host to lock party', async () => {
+      const mockParty = createMockParty({
+        host: 'hostuser',
+        isLocked: false
+      });
+      Party.findOne.mockResolvedValue(mockParty);
       const token = generateToken('hostuser', 'host@test.com');
       
       const response = await request(app)
@@ -146,6 +197,10 @@ describe('Party Routes', () => {
     });
 
     it('should reject non-host from locking', async () => {
+      Party.findOne.mockResolvedValue(createMockParty({
+        host: 'hostuser',
+        isLocked: false
+      }));
       const token = generateToken('notowner', 'user@test.com');
       
       const response = await request(app)
@@ -159,6 +214,13 @@ describe('Party Routes', () => {
 
   describe('POST /party/:code/transfer-host', () => {
     it('should allow host to transfer ownership', async () => {
+      Party.findOne.mockResolvedValue(createMockParty({
+        host: 'currenthost',
+        members: [
+          { user: 'currenthost', name: 'host@test.com' },
+          { user: 'newuser123', name: 'newuser@test.com' }
+        ]
+      }));
       const token = generateToken('currenthost', 'host@test.com');
       
       const response = await request(app)
@@ -170,6 +232,10 @@ describe('Party Routes', () => {
     });
 
     it('should reject non-host from transferring', async () => {
+      Party.findOne.mockResolvedValue(createMockParty({
+        host: 'hostuser',
+        members: [{ user: 'notowner', name: 'not@test.com' }]
+      }));
       const token = generateToken('notowner', 'user@test.com');
       
       const response = await request(app)
