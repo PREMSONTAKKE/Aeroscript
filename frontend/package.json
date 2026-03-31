@@ -14,6 +14,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.1",
     "array-move": "^4.0.0",
+    "canvg": "^4.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.0",
     "jspdf": "^4.2.0",
