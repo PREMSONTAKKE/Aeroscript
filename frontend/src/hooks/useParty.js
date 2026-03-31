@@ -89,8 +89,15 @@ export function useParty(canvasRef, pushToast) {
     setCurrentParty((prev) => prev ? { ...prev, isLocked: locked } : prev);
   }, []);
 
+  const handleStreamDraw = useCallback((data) => {
+    if (canvasRef.current) {
+      canvasRef.current.remoteUpdateStroke(data.strokeId, data.points, data.style, data.isDrawing);
+    }
+  }, [canvasRef]);
+
   useEffect(() => {
     partyService.onDraw(handleDraw);
+    partyService.onStreamDraw(handleStreamDraw);
     partyService.onClear(handleClear);
     partyService.onCanvasSync(handleCanvasSync);
     partyService.onPresence(handlePresence);
@@ -104,7 +111,7 @@ export function useParty(canvasRef, pushToast) {
     return () => {
       partyService.disconnect();
     };
-  }, [handleDraw, handleClear, handleCanvasSync, handlePresence, handleMemberJoined, handleMemberLeft, handleCursorMove, handleError, handleKicked, handleLockChanged]);
+  }, [handleDraw, handleStreamDraw, handleClear, handleCanvasSync, handlePresence, handleMemberJoined, handleMemberLeft, handleCursorMove, handleError, handleKicked, handleLockChanged]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -153,6 +160,10 @@ export function useParty(canvasRef, pushToast) {
     partyService.cursorMove(x, y, isDrawing);
   }, []);
 
+  const streamDraw = useCallback((strokeId, points, style, inputMode) => {
+    partyService.streamDraw(strokeId, points, style, inputMode);
+  }, []);
+
   const updatePresence = useCallback((inputMode) => {
     partyService.updatePresence(inputMode);
   }, []);
@@ -182,6 +193,7 @@ export function useParty(canvasRef, pushToast) {
     joinParty,
     leaveParty,
     draw,
+    streamDraw,
     syncCanvas,
     clearCanvas,
     cursorMove,
@@ -189,6 +201,7 @@ export function useParty(canvasRef, pushToast) {
     kickMember,
     toggleLock,
     transferHost,
-    setCurrentParty
+    setCurrentParty,
+    setPartyState: setCurrentParty
   };
 }

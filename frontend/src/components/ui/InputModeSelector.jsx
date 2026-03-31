@@ -1,16 +1,9 @@
 import React from 'react';
-import { Camera, MonitorSmartphone, Mouse, Touchpad } from 'lucide-react';
+import { Camera, Mouse, Touchpad, Check } from 'lucide-react';
 import ModalShell from '../workspace/ModalShell';
 
 function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
   const modes = [
-    {
-      id: 'camera',
-      label: 'Hand Tracking',
-      description: 'Use camera to detect hand gestures',
-      icon: Camera,
-      color: 'from-purple-500 to-pink-500'
-    },
     {
       id: 'mouse',
       label: 'Mouse/Touchpad',
@@ -26,19 +19,23 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
       color: 'from-emerald-500 to-teal-500'
     },
     {
-      id: 'screen',
-      label: 'Screen Canvas',
-      description: 'Use the display as your drawing surface without camera tracking',
-      icon: MonitorSmartphone,
-      color: 'from-orange-500 to-amber-500'
+      id: 'camera',
+      label: 'Hand Tracking',
+      description: 'Use camera to detect hand gestures',
+      icon: Camera,
+      color: 'from-purple-500 to-pink-500'
     }
   ];
+
+  const handleSelect = (modeId) => {
+    onSelect(modeId);
+  };
 
   return (
     <ModalShell
       isOpen={isOpen}
       title="Select Input Mode"
-      description="Choose how you want to interact with the canvas. You can change this anytime using the input selector in the toolbar."
+      description={`Currently active: ${modes.find(m => m.id === currentMode)?.label || currentMode}`}
       onClose={onClose}
       size="lg"
       zIndex="z-[200]"
@@ -47,7 +44,7 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
         {modes.map((mode) => (
           <button
             key={mode.id}
-            onClick={() => onSelect(mode.id)}
+            onClick={() => handleSelect(mode.id)}
             className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition ${
               currentMode === mode.id
                 ? 'border-cyan-400/40 bg-cyan-400/10'
@@ -63,7 +60,7 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
             </div>
             {currentMode === mode.id && (
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-400">
-                <div className="h-2 w-2 rounded-full bg-slate-950" />
+                <Check size={14} className="text-slate-950" />
               </div>
             )}
           </button>

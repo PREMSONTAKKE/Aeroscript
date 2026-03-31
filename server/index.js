@@ -261,6 +261,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('stream-draw', (data) => {
+    const code = socket.data.partyCode;
+    if (code) {
+      socket.to(`party:${code}`).emit('stream-draw', {
+        strokeId: data.strokeId,
+        points: data.points,
+        style: data.style,
+        isDrawing: data.isDrawing,
+        socketId: socket.id,
+        userName: socket.data.userName
+      });
+    }
+  });
+
   socket.on('sync-canvas', async (data) => {
     const code = socket.data.partyCode;
     if (!code) {
@@ -489,6 +503,40 @@ app.post('/api/auth/signin', async (req, res) => {
   }
 });
 
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+app.post('/api/auth/google', async (req, res) => {
+  const { credential } = req.body;
+  try {
+    if (!ensureDatabaseReady(res)) return;
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const googleId = payload.sub;
+    const email = payload.email;
+
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+    if (!user) {
+      user = new User({ email, googleId });
+      await user.save();
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      await user.save();
+    }
+
+    const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, email: user.email, userId: user._id });
+  } catch (err) {
+    console.error('❌ Google auth error:', err);
+    res.status(401).json({ error: 'Google authentication failed', details: err.message });
+  }
+});
+
 // Middleware to verify JWT
 const auth = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -658,6 +706,252 @@ app.put('/api/sessions/:id', auth, async (req, res) => {
 
 const partyRoutes = require('./routes/party');
 app.use('/api/party', partyRoutes);
+
+const AnalyticsDaily = require('./models/AnalyticsDaily');
+const BrushPreset = require('./models/BrushPreset');
+
+app.get('/api/brush-presets', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const presets = await BrushPreset.find({
+      $or: [{ userId: req.userId }, { isPublic: true }]
+    }).sort({ createdAt: -1 });
+    res.json({ presets });
+  } catch (err) {
+    console.error('❌ Brush presets fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch presets' });
+  }
+});
+
+app.post('/api/brush-presets', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const { name, brush, effects, isPublic } = req.body;
+    const preset = new BrushPreset({
+      userId: req.userId,
+      name,
+      brush: brush || {},
+      effects: effects || {},
+      isPublic: isPublic || false
+    });
+    await preset.save();
+    res.json({ preset });
+  } catch (err) {
+    console.error('❌ Brush preset create error:', err);
+    res.status(500).json({ error: 'Failed to create preset' });
+  }
+});
+
+app.put('/api/brush-presets/:id', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const preset = await BrushPreset.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      { $set: req.body },
+      { new: true }
+    );
+    if (!preset) return res.status(404).json({ error: 'Preset not found' });
+    res.json({ preset });
+  } catch (err) {
+    console.error('❌ Brush preset update error:', err);
+    res.status(500).json({ error: 'Failed to update preset' });
+  }
+});
+
+app.delete('/api/brush-presets/:id', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const preset = await BrushPreset.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    if (!preset) return res.status(404).json({ error: 'Preset not found' });
+    res.json({ message: 'Preset deleted' });
+  } catch (err) {
+    console.error('❌ Brush preset delete error:', err);
+    res.status(500).json({ error: 'Failed to delete preset' });
+  }
+});
+
+app.post('/api/brush-presets/:id/use', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    await BrushPreset.findByIdAndUpdate(req.params.id, { $inc: { useCount: 1 } });
+    res.json({ message: 'Preset usage recorded' });
+  } catch (err) {
+    console.error('❌ Brush preset use error:', err);
+    res.status(500).json({ error: 'Failed to record usage' });
+  }
+});
+
+app.get('/api/brush-presets/styles', async (req, res) => {
+  const stylePresets = [
+    { id: 'sketch', name: 'Sketch', type: 'pencil', brush: { color: '#333333', width: 2, inkType: 'Pencil' }, effects: { smoothing: 0.3, pressureSensitivity: 0.8, tiltSensitivity: 0.2 } },
+    { id: 'neon-glow', name: 'Neon Glow', type: 'neon', brush: { color: '#00ff88', width: 6, inkType: 'Neon' }, effects: { smoothing: 0.7, pressureSensitivity: 0.3, tiltSensitivity: 0 } },
+    { id: 'calligraphy', name: 'Calligraphy', type: 'calligraphy', brush: { color: '#1a1a2e', width: 8, inkType: 'Calligraphy' }, effects: { smoothing: 0.5, pressureSensitivity: 0.9, tiltSensitivity: 0.6 } },
+    { id: 'marker', name: 'Bold Marker', type: 'marker', brush: { color: '#ff6b6b', width: 12, inkType: 'Marker' }, effects: { smoothing: 0.2, pressureSensitivity: 0.1, tiltSensitivity: 0 } },
+    { id: 'laser', name: 'Laser Pointer', type: 'laser', brush: { color: '#ff0000', width: 3, inkType: 'Laser' }, effects: { smoothing: 0.9, pressureSensitivity: 0, tiltSensitivity: 0 } },
+    { id: 'graphite', name: 'Classic Graphite', type: 'graphite', brush: { color: '#e2e8f0', width: 4, inkType: 'Graphite' }, effects: { smoothing: 0.5, pressureSensitivity: 0.4, tiltSensitivity: 0.1 } }
+  ];
+  res.json({ presets: stylePresets });
+});
+
+app.get('/api/profile', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ profile: user });
+  } catch (err) {
+    console.error('❌ Profile fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+app.put('/api/profile', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const { displayName, bio } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { displayName, bio },
+      { new: true }
+    ).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ profile: user });
+  } catch (err) {
+    console.error('❌ Profile update error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+app.patch('/api/profile/preferences', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { preferences: { ...req.body } },
+      { new: true }
+    ).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ profile: user });
+  } catch (err) {
+    console.error('❌ Preferences update error:', err);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
+app.get('/api/profile/analytics/summary', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const period = req.query.period || 'week';
+    const daysMap = { day: 1, week: 7, month: 30, all: 365 };
+    const days = daysMap[period] || 7;
+
+    const sessions = await Session.find({ userId: req.userId });
+    const totalStrokes = sessions.reduce((sum, s) => sum + (s.strokes?.length || 0), 0);
+    const totalSessions = sessions.length;
+    const totalDrawingTime = Math.round(sessions.reduce((sum, s) => {
+      const elapsed = (new Date() - new Date(s.createdAt)) / 60000;
+      return sum + Math.min(elapsed, 120);
+    }, 0));
+
+    const allBrushWidths = sessions.flatMap(s => s.strokes?.map(st => st.brushWidth).filter(Boolean) || []);
+    const allColors = sessions.flatMap(s => s.strokes?.map(st => st.brushColor).filter(Boolean) || []);
+    const widthCounts = {};
+    allBrushWidths.forEach(w => { widthCounts[w] = (widthCounts[w] || 0) + 1; });
+    const mostUsedWidth = Object.entries(widthCounts).sort((a, b) => b[1] - a[1])[0];
+    const colorCounts = {};
+    allColors.forEach(c => { colorCounts[c] = (colorCounts[c] || 0) + 1; });
+    const mostUsedColor = Object.entries(colorCounts).sort((a, b) => b[1] - a[1])[0];
+
+    const now = new Date();
+    const weekData = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const daySessions = sessions.filter(s => new Date(s.createdAt).toISOString().split('T')[0] === dateStr);
+      const dayStrokes = daySessions.reduce((sum, s) => sum + (s.strokes?.length || 0), 0);
+      weekData.push({ date: dateStr, count: dayStrokes });
+    }
+
+    const streakDays = (() => {
+      let streak = 0;
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const hasSession = sessions.some(s => new Date(s.createdAt).toISOString().split('T')[0] === dateStr);
+        if (hasSession) streak++;
+        else break;
+      }
+      return streak;
+    })();
+
+    const avgSessionLength = totalSessions > 0 ? Math.round(totalDrawingTime / totalSessions) : 0;
+    const strokesPerMinute = totalDrawingTime > 0 ? (totalStrokes / totalDrawingTime).toFixed(1) : 0;
+
+    res.json({
+      summary: {
+        totalStrokes,
+        totalDrawingTime,
+        totalSessions,
+        strokesPerMinute: parseFloat(strokesPerMinute),
+        averageSessionLength: avgSessionLength,
+        mostUsedBrush: mostUsedWidth ? { width: parseInt(mostUsedWidth[0]), count: mostUsedWidth[1] } : null,
+        mostUsedColor: mostUsedColor ? { color: mostUsedColor[0], count: mostUsedColor[1] } : null,
+        weeklyStrokes: weekData,
+        streakDays,
+      }
+    });
+  } catch (err) {
+    console.error('❌ Analytics summary error:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+app.get('/api/profile/analytics/drawings', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const sessions = await Session.find({ userId: req.userId }).sort({ createdAt: -1 }).limit(50);
+    res.json({ drawings: sessions.map(s => ({ id: s._id, name: s.name, mode: s.mode, createdAt: s.createdAt, strokes: s.strokes?.length || 0 })) });
+  } catch (err) {
+    console.error('❌ Drawings fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch drawings' });
+  }
+});
+
+app.get('/api/profile/analytics/ink-usage', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const sessions = await Session.find({ userId: req.userId });
+    const inkCounts = {};
+    sessions.forEach(s => {
+      s.strokes?.forEach(st => {
+        if (st.inkType) inkCounts[st.inkType] = (inkCounts[st.inkType] || 0) + 1;
+      });
+    });
+    res.json({ inkUsage: Object.entries(inkCounts).map(([type, count]) => ({ type, count })) });
+  } catch (err) {
+    console.error('❌ Ink usage error:', err);
+    res.status(500).json({ error: 'Failed to fetch ink usage' });
+  }
+});
+
+app.post('/api/profile/analytics/record', auth, async (req, res) => {
+  try {
+    if (!ensureDatabaseReady(res)) return;
+    const { strokes, drawingTime, sessions } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+    await AnalyticsDaily.findOneAndUpdate(
+      { userId: req.userId, date: today },
+      { $inc: { strokes: strokes || 0, drawingTime: drawingTime || 0, sessions: sessions || 0 } },
+      { upsert: true, new: true }
+    );
+    res.json({ message: 'Analytics recorded' });
+  } catch (err) {
+    console.error('❌ Record analytics error:', err);
+    res.status(500).json({ error: 'Failed to record analytics' });
+  }
+});
 
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, '0.0.0.0', () => {

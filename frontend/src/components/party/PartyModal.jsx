@@ -147,7 +147,7 @@ function PartyModal({ isOpen, token, currentParty, onClose, onPartyJoined, onPar
       title={modalTitle}
       onClose={onClose}
       size="md"
-      zIndex="z-[200]"
+      zIndex="z-[9999]"
       showHeader={false}
     >
       {currentParty ? (

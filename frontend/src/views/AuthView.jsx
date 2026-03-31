@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Key } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import CursorTrail from '../components/AeroCanvas/CursorTrail';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE } from '../config/api';
@@ -15,6 +16,7 @@ const AuthView = () => {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,12 +31,32 @@ const AuthView = () => {
       const data = await res.json();
       
       if (res.ok && data.token) {
-        login({ email: data.email, token: data.token, userId: data.userId });
+        login({ email: data.email, token: data.token, userId: data.userId }, rememberMe);
       } else {
         setError(data.details || data.error || 'Authentication Failed');
       }
     } catch (err) {
       console.error('Auth Connection Error:', err);
+      setError('Connection failed. Check server logs.');
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        login({ email: data.email, token: data.token, userId: data.userId }, rememberMe);
+      } else {
+        setError(data.error || 'Google authentication failed');
+      }
+    } catch (err) {
+      console.error('Google Auth Error:', err);
       setError('Connection failed. Check server logs.');
     }
   };
@@ -127,6 +149,61 @@ const AuthView = () => {
           >
             {isSignUp ? 'Create Account' : 'Authorize Access'}
           </button>
+
+          {!isSignUp && (
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe(!rememberMe)}
+                  className="sr-only peer"
+                />
+                <div className="w-4 h-4 rounded border border-white/20 bg-white/5 peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all" />
+                <svg className="absolute inset-0 w-4 h-4 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span className="text-[10px] text-slate-400 uppercase tracking-widest">Remember Me</span>
+            </label>
+          )}
+
+          <div className="flex items-center gap-4 my-2">
+            <div className="flex-1 h-px bg-white/10" />
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest">or</span>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                setError('');
+                try {
+                  const res = await fetch(`${API_BASE}/auth/google`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ credential: credentialResponse.credential }),
+                  });
+                  const data = await res.json();
+                  if (res.ok && data.token) {
+                    login({ email: data.email, token: data.token, userId: data.userId });
+                  } else {
+                    setError(data.error || 'Google authentication failed');
+                  }
+                } catch (err) {
+                  console.error('Google Auth Error:', err);
+                  setError('Connection failed. Check server logs.');
+                }
+              }}
+              onError={() => setError('Google Sign-In was cancelled or failed')}
+              theme="filled_black"
+              size="large"
+              text="continue_with"
+              shape="pill"
+              width="440"
+              useOneTap
+            />
+          </div>
 
           <p className="text-center text-slate-500 text-[10px] uppercase tracking-[0.2em] select-none">
             {isSignUp ? "Already have an account?" : "Need an account?"} 

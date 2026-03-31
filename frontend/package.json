@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.4",
     "@tailwindcss/postcss": "^4.2.1",
     "array-move": "^4.0.0",
     "canvg": "^4.0.3",

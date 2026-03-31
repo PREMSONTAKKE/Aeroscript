@@ -94,6 +94,13 @@ export const profileApi = {
   async getInkUsage(token) {
     return fetchWithAuth('/api/profile/analytics/ink-usage', {}, token);
   },
+
+  async recordAnalytics(token, data) {
+    return fetchWithAuth('/api/profile/analytics/record', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, token);
+  },
 };
 
 export const shareApi = {

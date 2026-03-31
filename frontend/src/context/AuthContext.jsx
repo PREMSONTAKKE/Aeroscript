@@ -23,26 +23,36 @@ const normalizeUser = (user) => {
   };
 };
 
+const STORAGE_KEY = 'aeroscript_user';
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
-      const saved = localStorage.getItem('aeroscript_user');
+      const saved = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
       return saved ? normalizeUser(JSON.parse(saved)) : null;
     } catch {
-      localStorage.removeItem('aeroscript_user');
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
       return null;
     }
   });
 
-  const login = (userData) => {
+  const login = (userData, remember = true) => {
     const normalized = normalizeUser(userData);
     setUser(normalized);
-    localStorage.setItem('aeroscript_user', JSON.stringify(normalized));
+    if (remember) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      sessionStorage.removeItem(STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+      localStorage.removeItem(STORAGE_KEY);
+    }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('aeroscript_user');
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   };
 
   return (

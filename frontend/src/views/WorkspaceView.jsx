@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, LogOut, Moon, Sun, User, Palette } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AeroCanvas from '../components/AeroCanvas/AeroCanvas';
@@ -77,6 +77,7 @@ function WorkspaceView() {
     connect: partyConnect,
     leaveParty,
     draw: partyDraw,
+    streamDraw: partyStreamDraw,
     syncCanvas,
     clearCanvas: partyClearCanvas,
     cursorMove: partyCursorMove,
@@ -96,8 +97,6 @@ function WorkspaceView() {
         return 'hand tracking';
       case 'touch':
         return 'touch screen';
-      case 'screen':
-        return 'screen canvas';
       case 'mouse':
       default:
         return 'mouse or touchpad';
@@ -420,6 +419,16 @@ function WorkspaceView() {
     } : prev);
   };
 
+  const handleStrokeUpdate = useCallback((strokeId, points, style, isDrawing) => {
+    if (!currentParty) return;
+    partyStreamDraw(strokeId, points, {
+      color: style?.brushColor || brushColor,
+      width: style?.brushWidth || brushWidth,
+      ink: style?.inkType || inkType,
+      mode
+    }, isDrawing);
+  }, [currentParty, partyStreamDraw, brushColor, brushWidth, inkType, mode]);
+
   const handleSave = async () => {
     const snapshot = canvasRef.current?.getSnapshot();
     if (!snapshot?.hasContent || !user?.token) {
@@ -573,6 +582,15 @@ function WorkspaceView() {
 
   const handlePartyJoined = (party) => {
     setPartyState((prev) => ({ ...(prev || {}), ...party }));
+    setCurrentParty({
+      code: party.code,
+      name: party.name,
+      host: party.host,
+      members: party.members || [],
+      maxMembers: party.maxMembers,
+      isActive: party.isActive,
+      board: null
+    });
     setShowPartyModal(false);
     const snapshot = canvasRef.current?.getSnapshot();
     if (party.members?.length === 1 && snapshot?.hasContent) {
@@ -830,6 +848,7 @@ function WorkspaceView() {
               inkType={inkType}
               onDirtyChange={setIsDirty}
               onStrokeCommit={handleStrokeCommit}
+              onStrokeUpdate={handleStrokeUpdate}
               onPointerActivity={(point, isDrawing) => {
                 if (currentParty && point) {
                   partyCursorMove(point.x, point.y, isDrawing);
@@ -989,6 +1008,8 @@ function WorkspaceView() {
           pushToast={pushToast}
           theme={theme}
           setTheme={setTheme}
+          mode={mode}
+          currentParty={currentParty}
         />
       )}
 
