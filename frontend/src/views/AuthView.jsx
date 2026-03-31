@@ -41,7 +41,7 @@ const AuthView = () => {
     }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
+ /* const handleGoogleSuccess = async (credentialResponse) => {
     setError('');
     try {
       const res = await fetch(`${API_BASE}/auth/google`, {
@@ -60,6 +60,7 @@ const AuthView = () => {
       setError('Connection failed. Check server logs.');
     }
   };
+*/
 
   return (
     <div className="fixed inset-0 bg-[#06080d] flex flex-col items-center justify-center z-[2000] overflow-hidden font-sans">
