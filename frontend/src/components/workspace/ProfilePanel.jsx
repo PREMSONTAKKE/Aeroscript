@@ -143,7 +143,7 @@ export default function ProfilePanel({ isOpen, onClose, pushToast, theme, setThe
     return `${hours}h ${mins}m`;
   };
 
-  const renderAchievementCard = (achievement, compact = false) => (
+  const renderAchievementCard = (achievement) => (
     <div
       key={achievement.name + (achievement.earnedAt || '')}
       className={`flex items-center gap-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4`}
@@ -182,7 +182,7 @@ export default function ProfilePanel({ isOpen, onClose, pushToast, theme, setThe
       </div>
       {member.achievements?.length > 0 ? (
         <div className="space-y-3">
-          {member.achievements.map((a, i) => renderAchievementCard(a, true))}
+          {member.achievements.map((a) => renderAchievementCard(a))}
         </div>
       ) : (
         <div className="py-8 text-center text-slate-400">
@@ -409,7 +409,7 @@ export default function ProfilePanel({ isOpen, onClose, pushToast, theme, setThe
                       <h3 className="text-sm font-medium text-white mb-3">Your Achievements</h3>
                       {profile?.achievements?.length > 0 ? (
                         <div className="space-y-3">
-                          {profile.achievements.map((achievement, i) => renderAchievementCard(achievement))}
+                          {profile.achievements.map((achievement) => renderAchievementCard(achievement))}
                         </div>
                       ) : (
                         <div className="py-8 text-center text-slate-400">
