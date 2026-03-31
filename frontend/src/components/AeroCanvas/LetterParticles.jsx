@@ -6,7 +6,6 @@ const LetterParticles = ({ mode, onTitleFormed }) => {
   const canvasRef = useRef(null);
   const lettersRef = useRef([]);
   const mouseRef = useRef({ x: -1000, y: -1000, vx: 0, vy: 0 });
-  const prevMouseRef = useRef({ x: 0, y: 0 });
   const grabbedRef = useRef(null);
   const animFrameRef = useRef(null);
   const [formed, setFormed] = useState(false);

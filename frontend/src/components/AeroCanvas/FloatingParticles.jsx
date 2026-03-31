@@ -34,10 +34,9 @@ const FloatingParticles = () => {
 
     const connectionDistance = 120;
     let animId;
-    let time = 0;
 
     const animate = () => {
-      time++;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       for (let i = 0; i < particles.length; i++) {
