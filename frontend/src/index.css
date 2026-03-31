@@ -31,7 +31,7 @@ body, html {
   height: 100%;
   background: var(--bg-gradient);
   color: var(--text-primary);
-  overflow: hidden;
+  overflow-x: hidden;
   font-family: var(--font-sans);
   transition: background 0.5s ease, color 0.5s ease;
 }
@@ -39,6 +39,26 @@ body, html {
 #root {
   width: 100%;
   height: 100%;
+}
+
+.scroll-snap-container {
+  position: fixed;
+  inset: 0;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  z-index: 10;
+}
+
+.snap-section {
+  height: 100vh;
+  width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Custom scrollbar */

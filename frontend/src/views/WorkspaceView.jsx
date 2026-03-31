@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, LogOut, Moon, Sun, User, Palette } from 'lucide-react';
+import { ArrowLeft, LogOut, Moon, Sun, User, Palette, LayoutGrid, History, SlidersHorizontal, Menu } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AeroCanvas from '../components/AeroCanvas/AeroCanvas';
 import PredictionOverlay from '../components/PredictionOverlay';
@@ -582,15 +582,6 @@ function WorkspaceView() {
 
   const handlePartyJoined = (party) => {
     setPartyState((prev) => ({ ...(prev || {}), ...party }));
-    setCurrentParty({
-      code: party.code,
-      name: party.name,
-      host: party.host,
-      members: party.members || [],
-      maxMembers: party.maxMembers,
-      isActive: party.isActive,
-      board: null
-    });
     setShowPartyModal(false);
     const snapshot = canvasRef.current?.getSnapshot();
     if (party.members?.length === 1 && snapshot?.hasContent) {
@@ -674,10 +665,7 @@ function WorkspaceView() {
               className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-300"
               data-tooltip="Toggle panels (Ctrl+M/H/A)"
             >
-              <span className="text-base transition-transform group-hover:scale-110">
-                {(modesSidebarVisible && historySidebarVisible && showTopControls) ? '📊' : 
-                 modesSidebarVisible ? '📋' : historySidebarVisible ? '📜' : showTopControls ? '🎛️' : '📭'}
-              </span>
+              <Menu size={18} className="transition-transform group-hover:scale-110" />
             </button>
             
             {showSidebarMenu && (
@@ -693,7 +681,7 @@ function WorkspaceView() {
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>📋</span> Modes
+                    <LayoutGrid size={14} /> Modes
                   </span>
                   <span className="text-xs opacity-60">{modesSidebarVisible ? 'On' : 'Off'}</span>
                 </button>
@@ -708,7 +696,7 @@ function WorkspaceView() {
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>📜</span> History
+                    <History size={14} /> History
                   </span>
                   <span className="text-xs opacity-60">{historySidebarVisible ? 'On' : 'Off'}</span>
                 </button>
@@ -723,7 +711,7 @@ function WorkspaceView() {
                   }`}
                 >
                   <span className="flex items-center gap-2">
-                    <span>🎛️</span> Top Controls
+                    <SlidersHorizontal size={14} /> Top Controls
                   </span>
                   <span className="text-xs opacity-60">{showTopControls ? 'On' : 'Off'}</span>
                 </button>
