@@ -16,7 +16,9 @@ function useHandTracking(enabled) {
   const [handState, setHandState] = useState(EMPTY_HAND_STATE);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !HAND_TRACKING_SOCKET_URL) {
+      setIsConnected(false);
+      setHandState(EMPTY_HAND_STATE);
       return () => {};
     }
 
@@ -25,7 +27,8 @@ function useHandTracking(enabled) {
       upgrade: false,
       autoConnect: true,
       reconnection: true,
-      reconnectionDelayMax: 10000
+      reconnectionDelayMax: 5000,
+      timeout: 5000
     });
 
     const handleConnect = () => {
@@ -37,7 +40,7 @@ function useHandTracking(enabled) {
       setIsConnected(false);
     };
     const handleConnectError = (err) => {
-      console.error('[HandTracking] Connection error:', err);
+      console.warn('[HandTracking] Connection failed — hand tracking only works locally with a webcam. Error:', err.message);
       setIsConnected(false);
     };
     const handleHandData = (data) => {
