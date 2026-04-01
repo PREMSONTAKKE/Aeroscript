@@ -553,8 +553,8 @@ const AeroCanvas = forwardRef(function AeroCanvas(
             className="h-5 w-5 rounded-full border-2 border-white/80 shadow-[0_0_18px_rgba(34,211,238,0.55)]"
             style={{ backgroundColor: brushColor }}
           />
-          <div className="mt-2 rounded-full border border-white/10 bg-black/40 px-2 py-1 text-[9px] uppercase tracking-[0.2em] text-slate-200 backdrop-blur-md">
-            {handState.isDrawing ? 'Drawing' : `Fingers ${handState.fingersCount}`}
+          <div className="mt-2 rounded-full border border-white/10 bg-black/40 px-2 py-1 text-[9px] uppercase tracking-[0.2em] backdrop-blur-md" style={{ color: handState.isDrawing ? '#22d3ee' : '#94a3b8' }}>
+            {handState.isDrawing ? 'Drawing' : `${handState.fingersCount} finger${handState.fingersCount !== 1 ? 's' : ''}`}
           </div>
         </div>
       ) : null}

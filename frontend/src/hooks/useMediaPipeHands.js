@@ -19,9 +19,9 @@ function useMediaPipeHands(enabled) {
   const landmarkerRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
+  const videoRef = useRef(null);
   const smoothXRef = useRef(0);
   const smoothYRef = useRef(0);
-  const prevIsDrawingRef = useRef(false);
   const EMA_ALPHA = 0.35;
 
   const stop = useCallback(() => {
@@ -39,7 +39,7 @@ function useMediaPipeHands(enabled) {
     }
     smoothXRef.current = 0;
     smoothYRef.current = 0;
-    prevIsDrawingRef.current = false;
+    videoRef.current = null;
     setIsActive(false);
     setIsReady(false);
     setHandState(EMPTY_HAND_STATE);
@@ -96,17 +96,11 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
-        video.style.cssText = 'position:fixed;top:0;left:0;width:320px;height:240px;opacity:0.5;z-index:9999;pointer-events:none;object-fit:cover;border:2px solid cyan;';
-
-        const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;top:0;left:0;z-index:9998;pointer-events:none;';
-        container.appendChild(video);
-        document.body.appendChild(container);
+        videoRef.current = video;
 
         await video.play();
 
         if (cancelled) {
-          document.body.removeChild(container);
           stream.getTracks().forEach(t => t.stop());
           landmarker.close();
           return;
@@ -116,13 +110,13 @@ function useMediaPipeHands(enabled) {
         setIsActive(true);
 
         const detect = () => {
-          if (!landmarkerRef.current || !video || video.readyState < 2) {
+          if (!landmarkerRef.current || !videoRef.current || videoRef.current.readyState < 2) {
             rafRef.current = requestAnimationFrame(detect);
             return;
           }
 
           try {
-            const results = landmarkerRef.current.detectForVideo(video, performance.now());
+            const results = landmarkerRef.current.detectForVideo(videoRef.current, performance.now());
 
             if (results?.landmarks?.length > 0) {
               const lm = results.landmarks[0];
@@ -134,7 +128,6 @@ function useMediaPipeHands(enabled) {
               const ringPip = lm[14];
               const pinkyTip = lm[20];
               const pinkyPip = lm[18];
-              const wrist = lm[0];
 
               const idxUp = idxTip.y < idxPip.y;
               const midUp = midTip.y < midPip.y;
@@ -142,8 +135,7 @@ function useMediaPipeHands(enabled) {
               const pinkyUp = pinkyTip.y < pinkyPip.y;
               const fingersUp = [idxUp, midUp, ringUp, pinkyUp].filter(Boolean).length;
 
-              const idxDist = Math.hypot(idxTip.x - wrist.x, idxTip.y - wrist.y);
-              const isDrawing = idxUp && fingersUp <= 2 && idxDist > 0.05;
+              const isDrawing = idxUp && fingersUp === 1;
 
               const rawX = idxTip.x;
               const rawY = idxTip.y;
@@ -170,16 +162,13 @@ function useMediaPipeHands(enabled) {
                 fingersCount: fingersUp,
                 landmarks
               });
-
-              prevIsDrawingRef.current = isDrawing;
             } else {
               smoothXRef.current = 0;
               smoothYRef.current = 0;
-              prevIsDrawingRef.current = false;
               setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
             }
           } catch (e) {
-            console.warn('[MediaPipeHands] Detection error:', e.message);
+            setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
           }
 
           rafRef.current = requestAnimationFrame(detect);
@@ -188,7 +177,6 @@ function useMediaPipeHands(enabled) {
         rafRef.current = requestAnimationFrame(detect);
       } catch (err) {
         if (!cancelled) {
-          console.error('[MediaPipeHands] Init error:', err);
           setError(err.message);
           setIsActive(false);
         }
