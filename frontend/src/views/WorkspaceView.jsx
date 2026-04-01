@@ -113,14 +113,9 @@ function WorkspaceView() {
   useEffect(() => {
     const loadPreferences = async () => {
       const savedTheme = window.localStorage.getItem('aeroscript_theme');
-      const savedHandTracking = window.localStorage.getItem('aeroscript_hand_tracking');
 
       if (savedTheme === 'light' || savedTheme === 'dark') {
         setTheme(savedTheme);
-      }
-
-      if (savedHandTracking === 'true' || savedHandTracking === 'false') {
-        setHandTrackingEnabled(savedHandTracking === 'true');
       }
 
       if (user?.token) {
@@ -145,10 +140,6 @@ function WorkspaceView() {
     document.body.dataset.theme = theme;
     window.localStorage.setItem('aeroscript_theme', theme);
   }, [theme]);
-
-  useEffect(() => {
-    window.localStorage.setItem('aeroscript_hand_tracking', String(handTrackingEnabled));
-  }, [handTrackingEnabled]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
