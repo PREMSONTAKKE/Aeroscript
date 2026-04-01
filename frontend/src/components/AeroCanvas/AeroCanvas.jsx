@@ -313,11 +313,13 @@ const AeroCanvas = forwardRef(function AeroCanvas(
 
     if (handState.isDrawing) {
       if (!drawingRef.current) {
+        console.log('[AeroCanvas] HAND DRAWING START', point);
         beginStroke(point, 'hand');
       } else {
         updateStroke(point, 'hand');
       }
     } else if (activeInputRef.current === 'hand') {
+      console.log('[AeroCanvas] HAND DRAWING END');
       endStroke('hand');
     }
   }, [beginStroke, endStroke, getHandPoint, handState, handTrackingEnabled, updateStroke]);

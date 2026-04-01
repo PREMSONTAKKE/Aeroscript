@@ -21,6 +21,7 @@ function useMediaPipeHands(enabled) {
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const lastDetectedRef = useRef(0);
+  const frameCountRef = useRef(0);
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -125,7 +126,7 @@ function useMediaPipeHands(enabled) {
               const ringUp = ringTip.y < ringPip.y;
               const pinkyUp = pinkyTip.y < pinkyPip.y;
 
-              const isDrawing = idxUp && !midUp && !ringUp && !pinkyUp;
+              const isDrawing = idxUp;
 
               const fingersCount = [idxUp, midUp, ringUp, pinkyUp].filter(Boolean).length;
 
@@ -134,14 +135,22 @@ function useMediaPipeHands(enabled) {
                 y: Math.round(p.y * 100)
               }));
 
+              const rawX = idxTip.x;
+              const mirroredX = 100 - rawX;
+
               setHandState({
-                x: Math.round(idxTip.x * 100),
+                x: Math.round(mirroredX),
                 y: Math.round(idxTip.y * 100),
                 isVisible: true,
                 isDrawing,
                 fingersCount,
                 landmarks
               });
+
+              frameCountRef.current++;
+              if (frameCountRef.current % 30 === 0) {
+                console.log('[MediaPipeHands] Detected:', { x: Math.round(mirroredX), y: Math.round(idxTip.y * 100), isDrawing, fingersCount });
+              }
             } else {
               const timeSinceLast = Date.now() - lastDetectedRef.current;
               if (timeSinceLast > 200) {
