@@ -29,6 +29,9 @@ function useMediaPipeHands(enabled) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    if (videoRef.current && videoRef.current.parentNode) {
+      videoRef.current.parentNode.removeChild(videoRef.current);
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -96,6 +99,8 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
+        video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;left:-9999px;top:-9999px;pointer-events:none;';
+        document.body.appendChild(video);
         videoRef.current = video;
 
         await video.play();
