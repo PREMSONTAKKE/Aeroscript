@@ -19,7 +19,7 @@ app.use(express.json({ limit: '50mb' }));
 
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:5002'];
+  : '*';
 
 app.use(cors({
   origin: corsOrigins,
@@ -32,7 +32,9 @@ const io = new Server(server, {
     origin: corsOrigins,
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  allowEIO3: true,
+  transports: ['websocket', 'polling']
 });
 
 const recognitionService = new RecognitionService();
@@ -966,6 +968,7 @@ app.post('/api/profile/analytics/record', auth, async (req, res) => {
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 AeroScript Server V2.5.1 [HOTFIX-APPLIED]`);
-  console.log(`📡 Listening at http://127.0.0.1:${PORT}`);
+  console.log(`📡 Listening at http://0.0.0.0:${PORT}`);
+  console.log(`✅ API routes registered: /api/auth/signup, /api/auth/signin, /api/auth/google, /api/profile`);
   console.log(`🎮 Socket.IO ready for real-time collaboration`);
 });
