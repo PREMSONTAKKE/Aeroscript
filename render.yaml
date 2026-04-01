@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: aeroscript-hand-tracking
+    rootDir: server/hand-tracking
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 app:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DISABLE_CAMERA_WEBRTC
+        value: "true"

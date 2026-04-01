@@ -9,7 +9,10 @@ const apiOrigin = trimTrailingSlash(
   import.meta.env.VITE_API_ORIGIN ||
   PRODUCTION_API
 );
-const handTrackingOrigin = trimTrailingSlash(import.meta.env.VITE_HAND_TRACKING_ORIGIN);
+const handTrackingOrigin = trimTrailingSlash(
+  import.meta.env.VITE_HAND_TRACKING_URL ||
+  import.meta.env.VITE_HAND_TRACKING_ORIGIN
+);
 
 export const API_BASE = `${apiOrigin}/api`;
 export const HAND_TRACKING_SOCKET_URL = handTrackingOrigin || DEFAULT_HAND_TRACKING_ORIGIN;
