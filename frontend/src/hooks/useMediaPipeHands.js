@@ -73,7 +73,7 @@ function useMediaPipeHands(enabled) {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
             delegate: 'GPU'
           },
-          runningMode: 'IMAGE',
+          runningMode: 'VIDEO',
           numHands: 1,
           minHandDetectionConfidence: 0.5,
           minHandPresenceConfidence: 0.5,
@@ -107,7 +107,7 @@ function useMediaPipeHands(enabled) {
         const canvas = document.createElement('canvas');
         canvas.width = 320;
         canvas.height = 240;
-        canvas.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+        canvas.style.cssText = 'position:fixed;top:0;left:0;width:320px;height:240px;opacity:0.3;z-index:9999;pointer-events:none;';
         document.body.appendChild(canvas);
 
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -139,7 +139,7 @@ function useMediaPipeHands(enabled) {
 
           try {
             ctx.drawImage(videoRef.current, 0, 0, 320, 240);
-            const results = landmarkerRef.current.detect(canvas);
+            const results = landmarkerRef.current.detectForVideo(canvas, performance.now());
 
             if (results?.landmarks?.length > 0) {
               const lm = results.landmarks[0];
