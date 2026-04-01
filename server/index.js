@@ -16,12 +16,22 @@ const WordRecognitionService = require('./ml/services/wordRecognitionService');
 const app = express();
 const server = http.createServer(app);
 app.use(express.json({ limit: '50mb' }));
-app.use(cors());
+
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:5002'];
+
+app.use(cors({
+  origin: corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
+}));
 
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: corsOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
