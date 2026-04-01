@@ -156,6 +156,10 @@ function useMediaPipeHands(enabled) {
               if (timeSinceLast > 200) {
                 setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
               }
+              frameCountRef.current++;
+              if (frameCountRef.current % 150 === 0) {
+                console.log('[MediaPipeHands] No hand detected. Video readyState:', videoRef.current?.readyState, 'Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+              }
             }
           } catch (e) {
             console.warn('[MediaPipeHands] Detection error:', e.message);
@@ -163,8 +167,6 @@ function useMediaPipeHands(enabled) {
 
           rafRef.current = requestAnimationFrame(detect);
         };
-
-        rafRef.current = requestAnimationFrame(detect);
       } catch (err) {
         if (!cancelled) {
           console.error('[MediaPipeHands] Init error:', err);
