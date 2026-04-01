@@ -38,8 +38,8 @@ const io = new Server(server, {
 });
 
 app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.removeHeader('Cross-Origin-Opener-Policy');
+  res.removeHeader('Cross-Origin-Embedder-Policy');
   next();
 });
 
@@ -529,6 +529,11 @@ app.post('/api/auth/google', async (req, res) => {
   try {
     if (!ensureDatabaseReady(res)) return;
 
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error('❌ GOOGLE_CLIENT_ID not configured in server');
+      return res.status(500).json({ error: 'Google OAuth not configured on server' });
+    }
+
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -550,7 +555,7 @@ app.post('/api/auth/google', async (req, res) => {
     const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, email: user.email, userId: user._id });
   } catch (err) {
-    console.error('❌ Google auth error:', err);
+    console.error('❌ Google auth error:', err.message);
     res.status(401).json({ error: 'Google authentication failed', details: err.message });
   }
 });
