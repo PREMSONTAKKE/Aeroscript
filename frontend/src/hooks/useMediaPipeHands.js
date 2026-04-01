@@ -100,7 +100,19 @@ function useMediaPipeHands(enabled) {
         setIsActive(true);
 
         const detect = async () => {
-          if (!landmarkerRef.current || !videoRef.current || videoRef.current.readyState < 2) {
+          if (!landmarkerRef.current) {
+            rafRef.current = requestAnimationFrame(detect);
+            return;
+          }
+          if (!videoRef.current) {
+            rafRef.current = requestAnimationFrame(detect);
+            return;
+          }
+          if (videoRef.current.readyState < 2) {
+            frameCountRef.current++;
+            if (frameCountRef.current % 30 === 0) {
+              console.log('[MediaPipeHands] Waiting for video ready... readyState:', videoRef.current.readyState);
+            }
             rafRef.current = requestAnimationFrame(detect);
             return;
           }
