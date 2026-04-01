@@ -313,13 +313,11 @@ const AeroCanvas = forwardRef(function AeroCanvas(
 
     if (handState.isDrawing) {
       if (!drawingRef.current) {
-        console.log('[AeroCanvas] HAND DRAWING START', point);
         beginStroke(point, 'hand');
       } else {
         updateStroke(point, 'hand');
       }
     } else if (activeInputRef.current === 'hand') {
-      console.log('[AeroCanvas] HAND DRAWING END');
       endStroke('hand');
     }
   }, [beginStroke, endStroke, getHandPoint, handState, handTrackingEnabled, updateStroke]);
@@ -497,7 +495,7 @@ const AeroCanvas = forwardRef(function AeroCanvas(
   }), [brushColor, brushWidth, inkType, paintBackground, redoStack, strokes, remoteActiveStrokes]);
 
   return (
-    <div ref={containerRef} className="canvas-container relative h-full w-full overflow-hidden rounded-[28px] border border-white/8 bg-black/40" style={handTrackingEnabled ? { transform: 'scaleX(-1)' } : undefined}>
+    <div ref={containerRef} className="canvas-container relative h-full w-full overflow-hidden rounded-[28px] border border-white/8 bg-black/40">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 h-full w-full touch-none"

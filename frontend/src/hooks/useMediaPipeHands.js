@@ -19,6 +19,10 @@ function useMediaPipeHands(enabled) {
   const landmarkerRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
+  const smoothXRef = useRef(0);
+  const smoothYRef = useRef(0);
+  const prevIsDrawingRef = useRef(false);
+  const EMA_ALPHA = 0.35;
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -33,6 +37,9 @@ function useMediaPipeHands(enabled) {
       landmarkerRef.current.close();
       landmarkerRef.current = null;
     }
+    smoothXRef.current = 0;
+    smoothYRef.current = 0;
+    prevIsDrawingRef.current = false;
     setIsActive(false);
     setIsReady(false);
     setHandState(EMPTY_HAND_STATE);
@@ -58,7 +65,7 @@ function useMediaPipeHands(enabled) {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
             delegate: 'GPU'
           },
-          runningMode: 'IMAGE',
+          runningMode: 'VIDEO',
           numHands: 1,
           minHandDetectionConfidence: 0.5,
           minHandPresenceConfidence: 0.5,
@@ -89,21 +96,17 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
+        video.style.cssText = 'position:fixed;top:0;left:0;width:320px;height:240px;opacity:0.5;z-index:9999;pointer-events:none;object-fit:cover;border:2px solid cyan;';
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;top:0;left:0;z-index:9998;pointer-events:none;';
+        container.appendChild(video);
+        document.body.appendChild(container);
 
-        await new Promise((resolve) => {
-          video.onloadedmetadata = () => {
-            video.play().then(resolve).catch(resolve);
-          };
-          video.onerror = resolve;
-          setTimeout(resolve, 5000);
-        });
+        await video.play();
 
         if (cancelled) {
+          document.body.removeChild(container);
           stream.getTracks().forEach(t => t.stop());
           landmarker.close();
           return;
@@ -119,8 +122,7 @@ function useMediaPipeHands(enabled) {
           }
 
           try {
-            ctx.drawImage(video, 0, 0, 640, 480);
-            const results = landmarkerRef.current.detect(canvas);
+            const results = landmarkerRef.current.detectForVideo(video, performance.now());
 
             if (results?.landmarks?.length > 0) {
               const lm = results.landmarks[0];
@@ -132,29 +134,48 @@ function useMediaPipeHands(enabled) {
               const ringPip = lm[14];
               const pinkyTip = lm[20];
               const pinkyPip = lm[18];
+              const wrist = lm[0];
 
               const idxUp = idxTip.y < idxPip.y;
               const midUp = midTip.y < midPip.y;
               const ringUp = ringTip.y < ringPip.y;
               const pinkyUp = pinkyTip.y < pinkyPip.y;
+              const fingersUp = [idxUp, midUp, ringUp, pinkyUp].filter(Boolean).length;
 
-              const isDrawing = idxUp;
-              const fingersCount = [idxUp, midUp, ringUp, pinkyUp].filter(Boolean).length;
+              const idxDist = Math.hypot(idxTip.x - wrist.x, idxTip.y - wrist.y);
+              const isDrawing = idxUp && fingersUp <= 2 && idxDist > 0.05;
+
+              const rawX = idxTip.x;
+              const rawY = idxTip.y;
+
+              if (smoothXRef.current === 0 && smoothYRef.current === 0) {
+                smoothXRef.current = rawX;
+                smoothYRef.current = rawY;
+              }
+              smoothXRef.current = EMA_ALPHA * rawX + (1 - EMA_ALPHA) * smoothXRef.current;
+              smoothYRef.current = EMA_ALPHA * rawY + (1 - EMA_ALPHA) * smoothYRef.current;
+
+              const mirroredX = 100 - smoothXRef.current * 100;
 
               const landmarks = lm.map(p => ({
-                x: Math.round(p.x * 100),
+                x: Math.round((1 - p.x) * 100),
                 y: Math.round(p.y * 100)
               }));
 
               setHandState({
-                x: Math.round((1 - idxTip.x) * 100),
-                y: Math.round(idxTip.y * 100),
+                x: mirroredX,
+                y: Math.round(smoothYRef.current * 100),
                 isVisible: true,
                 isDrawing,
-                fingersCount,
+                fingersCount: fingersUp,
                 landmarks
               });
+
+              prevIsDrawingRef.current = isDrawing;
             } else {
+              smoothXRef.current = 0;
+              smoothYRef.current = 0;
+              prevIsDrawingRef.current = false;
               setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
             }
           } catch (e) {
