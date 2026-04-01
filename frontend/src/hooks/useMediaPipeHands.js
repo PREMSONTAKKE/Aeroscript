@@ -147,7 +147,7 @@ function useMediaPipeHands(enabled) {
               }));
 
               setHandState({
-                x: Math.round(idxTip.x * 100),
+                x: Math.round((1 - idxTip.x) * 100),
                 y: Math.round(idxTip.y * 100),
                 isVisible: true,
                 isDrawing,
