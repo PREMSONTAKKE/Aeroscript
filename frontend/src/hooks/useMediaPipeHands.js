@@ -50,11 +50,15 @@ function useMediaPipeHands(enabled) {
 
     let cancelled = false;
 
+    console.log('[MediaPipeHands] useEffect running, enabled:', enabled);
     const init = async () => {
+      console.log('[MediaPipeHands] init() called, enabled:', enabled);
       try {
+        console.log('[MediaPipeHands] Loading FilesetResolver...');
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm'
         );
+        console.log('[MediaPipeHands] FilesetResolver loaded, creating HandLandmarker...');
 
         const landmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
@@ -67,6 +71,7 @@ function useMediaPipeHands(enabled) {
           minHandPresenceConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
+        console.log('[MediaPipeHands] HandLandmarker created!');
 
         if (cancelled) {
           landmarker.close();
@@ -74,10 +79,12 @@ function useMediaPipeHands(enabled) {
         }
 
         landmarkerRef.current = landmarker;
+        console.log('[MediaPipeHands] Requesting camera...');
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: 640, height: 480 }
         });
+        console.log('[MediaPipeHands] Camera stream obtained!');
 
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
@@ -93,11 +100,14 @@ function useMediaPipeHands(enabled) {
         video.muted = true;
         video.playsInline = true;
         videoRef.current = video;
+        console.log('[MediaPipeHands] Starting video.play()...');
 
         await video.play();
+        console.log('[MediaPipeHands] Video playing! readyState:', video.readyState);
 
         setIsReady(true);
         setIsActive(true);
+        console.log('[MediaPipeHands] Starting detection loop...');
 
         const detect = async () => {
           if (!landmarkerRef.current) {
