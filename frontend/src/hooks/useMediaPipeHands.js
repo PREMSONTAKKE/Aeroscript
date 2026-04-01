@@ -16,12 +16,9 @@ function useMediaPipeHands(enabled) {
   const [handState, setHandState] = useState(EMPTY_HAND_STATE);
   const [error, setError] = useState(null);
 
-  const videoRef = useRef(null);
   const landmarkerRef = useRef(null);
   const streamRef = useRef(null);
   const rafRef = useRef(null);
-  const lastDetectedRef = useRef(0);
-  const frameCountRef = useRef(0);
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -50,28 +47,23 @@ function useMediaPipeHands(enabled) {
 
     let cancelled = false;
 
-    console.log('[MediaPipeHands] useEffect running, enabled:', enabled);
     const init = async () => {
-      console.log('[MediaPipeHands] init() called, enabled:', enabled);
       try {
-        console.log('[MediaPipeHands] Loading FilesetResolver...');
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm'
         );
-        console.log('[MediaPipeHands] FilesetResolver loaded, creating HandLandmarker...');
 
         const landmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
             delegate: 'GPU'
           },
-          runningMode: 'VIDEO',
+          runningMode: 'IMAGE',
           numHands: 1,
           minHandDetectionConfidence: 0.5,
           minHandPresenceConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
-        console.log('[MediaPipeHands] HandLandmarker created!');
 
         if (cancelled) {
           landmarker.close();
@@ -79,12 +71,10 @@ function useMediaPipeHands(enabled) {
         }
 
         landmarkerRef.current = landmarker;
-        console.log('[MediaPipeHands] Requesting camera...');
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: 640, height: 480 }
         });
-        console.log('[MediaPipeHands] Camera stream obtained!');
 
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
@@ -99,48 +89,41 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
-        videoRef.current = video;
-        console.log('[MediaPipeHands] Starting video.play()...');
 
-        await video.play();
-        console.log('[MediaPipeHands] Video playing! readyState:', video.readyState);
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        await new Promise((resolve) => {
+          video.onloadedmetadata = () => {
+            video.play().then(resolve).catch(resolve);
+          };
+          video.onerror = resolve;
+          setTimeout(resolve, 5000);
+        });
+
+        if (cancelled) {
+          stream.getTracks().forEach(t => t.stop());
+          landmarker.close();
+          return;
+        }
 
         setIsReady(true);
         setIsActive(true);
-        console.log('[MediaPipeHands] Starting detection loop...');
 
-        const detect = async () => {
-          if (!landmarkerRef.current) {
-            rafRef.current = requestAnimationFrame(detect);
-            return;
-          }
-          if (!videoRef.current) {
-            rafRef.current = requestAnimationFrame(detect);
-            return;
-          }
-          if (videoRef.current.readyState < 2) {
-            frameCountRef.current++;
-            if (frameCountRef.current % 30 === 0) {
-              console.log('[MediaPipeHands] Waiting for video ready... readyState:', videoRef.current.readyState);
-            }
+        const detect = () => {
+          if (!landmarkerRef.current || !video || video.readyState < 2) {
             rafRef.current = requestAnimationFrame(detect);
             return;
           }
 
           try {
-            const results = landmarkerRef.current.detectForVideo(videoRef.current, performance.now());
+            ctx.drawImage(video, 0, 0, 640, 480);
+            const results = landmarkerRef.current.detect(canvas);
 
-            if (!results || !results.landmarks) {
-              console.log('[MediaPipeHands] Results empty or null');
-            } else if (results.landmarks.length === 0) {
-              frameCountRef.current++;
-              if (frameCountRef.current % 30 === 0) {
-                console.log('[MediaPipeHands] No hand in frame. Video dims:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
-              }
-            } else {
-              lastDetectedRef.current = Date.now();
+            if (results?.landmarks?.length > 0) {
               const lm = results.landmarks[0];
-
               const idxTip = lm[8];
               const idxPip = lm[6];
               const midTip = lm[12];
@@ -156,7 +139,6 @@ function useMediaPipeHands(enabled) {
               const pinkyUp = pinkyTip.y < pinkyPip.y;
 
               const isDrawing = idxUp;
-
               const fingersCount = [idxUp, midUp, ringUp, pinkyUp].filter(Boolean).length;
 
               const landmarks = lm.map(p => ({
@@ -164,8 +146,7 @@ function useMediaPipeHands(enabled) {
                 y: Math.round(p.y * 100)
               }));
 
-              const rawX = idxTip.x;
-              const mirroredX = 100 - rawX;
+              const mirroredX = 100 - idxTip.x;
 
               setHandState({
                 x: Math.round(mirroredX),
@@ -175,11 +156,8 @@ function useMediaPipeHands(enabled) {
                 fingersCount,
                 landmarks
               });
-
-              frameCountRef.current++;
-              if (frameCountRef.current % 30 === 0) {
-                console.log('[MediaPipeHands] Detected:', { x: Math.round(mirroredX), y: Math.round(idxTip.y * 100), isDrawing, fingersCount });
-              }
+            } else {
+              setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
             }
           } catch (e) {
             console.warn('[MediaPipeHands] Detection error:', e.message);
@@ -187,6 +165,8 @@ function useMediaPipeHands(enabled) {
 
           rafRef.current = requestAnimationFrame(detect);
         };
+
+        rafRef.current = requestAnimationFrame(detect);
       } catch (err) {
         if (!cancelled) {
           console.error('[MediaPipeHands] Init error:', err);
