@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Mouse, Touchpad, Check, AlertTriangle } from 'lucide-react';
+import { Mouse, Touchpad, Check, AlertTriangle } from 'lucide-react';
 import ModalShell from '../workspace/ModalShell';
 
 function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
@@ -20,43 +20,12 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
       description: 'Draw directly on touch screen',
       icon: Touchpad,
       color: 'from-emerald-500 to-teal-500'
-    },
-    {
-      id: 'camera',
-      label: 'Hand Tracking',
-      description: 'Use camera to detect hand gestures',
-      icon: Camera,
-      color: 'from-purple-500 to-pink-500'
     }
   ];
 
-  const requestCameraPermission = async () => {
-    setIsRequesting(true);
-    setPermissionError('');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
-      onSelect('camera');
-    } catch (err) {
-      if (err.name === 'NotAllowedError') {
-        setPermissionError('Camera access denied. Please allow camera access in your browser settings.');
-      } else if (err.name === 'NotFoundError') {
-        setPermissionError('No camera found on this device.');
-      } else {
-        setPermissionError('Could not access camera: ' + err.message);
-      }
-    } finally {
-      setIsRequesting(false);
-    }
-  };
-
   const handleSelect = (modeId) => {
-    if (modeId === 'camera') {
-      requestCameraPermission();
-    } else {
-      setPermissionError('');
-      onSelect(modeId);
-    }
+    setPermissionError('');
+    onSelect(modeId);
   };
 
   return (
@@ -80,12 +49,11 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
           <button
             key={mode.id}
             onClick={() => handleSelect(mode.id)}
-            disabled={isRequesting && mode.id === 'camera'}
             className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition ${
               currentMode === mode.id
                 ? 'border-cyan-400/40 bg-cyan-400/10'
                 : 'border-white/10 bg-white/5 hover:bg-white/10'
-            } ${isRequesting && mode.id === 'camera' ? 'opacity-50 cursor-wait' : ''}`}
+            }`}
           >
             <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${mode.color}`}>
               <mode.icon size={24} className="text-white" />
