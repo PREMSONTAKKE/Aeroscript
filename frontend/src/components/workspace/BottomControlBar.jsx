@@ -28,7 +28,7 @@ function BottomControlBar({
           <Camera size={18} />
         </button>
         <button
-          className={`bc-btn ${handTrackingEnabled ? 'active' : ''}`}
+          className={`bc-btn ${inputMode === 'camera' && handTrackingEnabled ? 'active' : ''}`}
           title="Hand Tracking"
           onClick={onHandClick}
         >

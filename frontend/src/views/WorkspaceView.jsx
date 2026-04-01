@@ -892,16 +892,15 @@ function WorkspaceView() {
       <BottomControlBar
         onCameraClick={() => setShowInputSelector(true)}
         onHandClick={() => {
-          setHandTrackingEnabled((current) => {
-            const next = !current;
-            pushToast({
-              title: next ? 'Hand Tracking Enabled' : 'Hand Tracking Disabled',
-              description: next ? 'Waiting for live camera input.' : 'Pointer drawing stays active.',
-              tone: 'info',
-              duration: 2200
-            });
-            return next;
-          });
+          if (inputMode === 'camera' && handTrackingEnabled) {
+            setInputMode('mouse');
+            setHandTrackingEnabled(false);
+            pushToast({ title: 'Hand Tracking Disabled', description: 'Switched to mouse input.', tone: 'info', duration: 2200 });
+          } else {
+            setInputMode('camera');
+            setHandTrackingEnabled(true);
+            pushToast({ title: 'Hand Tracking Enabled', description: 'Show your hand to the camera.', tone: 'info', duration: 2200 });
+          }
         }}
         onExport={() => setExportDialogOpen(true)}
         onUndo={() => canvasRef.current?.undo()}
