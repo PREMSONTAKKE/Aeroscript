@@ -107,7 +107,7 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
-        video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;left:-9999px;top:-9999px;pointer-events:none;';
+        video.style.cssText = 'position:fixed;top:0;left:0;width:320px;height:240px;opacity:1;z-index:9999;pointer-events:none;border:2px solid cyan;';
         document.body.appendChild(video);
         videoRef.current = video;
         console.log('[MediaPipe] Video element added to DOM');
