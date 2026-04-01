@@ -20,7 +20,7 @@ import ProfilePanel from '../components/workspace/ProfilePanel';
 import ShareDialog from '../components/workspace/ShareDialog';
 import { useAuth } from '../context/AuthContext';
 import { getModeConfig, MODE_CONFIGS } from '../config/modes';
-import useHandTracking from '../hooks/useHandTracking';
+import useMediaPipeHands from '../hooks/useMediaPipeHands';
 import useToast from '../hooks/useToast';
 import { useDrawingAnalytics } from '../hooks/useDrawingAnalytics';
 import { useParty } from '../hooks/useParty';
@@ -68,7 +68,7 @@ function WorkspaceView() {
   const [showTopControls, setShowTopControls] = useState(false);
   const [showSidebarMenu, setShowSidebarMenu] = useState(false);
   const { toasts, pushToast, dismissToast } = useToast();
-  const { isConnected: handTrackingConnected, handState } = useHandTracking(handTrackingEnabled);
+  const { isActive: handTrackingConnected, handState } = useMediaPipeHands(handTrackingEnabled);
   const { trackStroke, trackSessionEnd } = useDrawingAnalytics(user?.userId);
 
   const {
