@@ -23,6 +23,7 @@ function useMediaPipeHands(enabled) {
   const smoothXRef = useRef(0);
   const smoothYRef = useRef(0);
   const EMA_ALPHA = 0.35;
+  const logCounterRef = useRef(0);
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -49,6 +50,7 @@ function useMediaPipeHands(enabled) {
   }, []);
 
   useEffect(() => {
+    console.log('[MediaPipe] useEffect running, enabled:', enabled);
     if (!enabled) {
       stop();
       setError(null);
@@ -58,10 +60,13 @@ function useMediaPipeHands(enabled) {
     let cancelled = false;
 
     const init = async () => {
+      console.log('[MediaPipe] init started');
       try {
+        console.log('[MediaPipe] Loading FilesetResolver...');
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm'
         );
+        console.log('[MediaPipe] Creating HandLandmarker...');
 
         const landmarker = await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
@@ -74,6 +79,7 @@ function useMediaPipeHands(enabled) {
           minHandPresenceConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
+        console.log('[MediaPipe] HandLandmarker created');
 
         if (cancelled) {
           landmarker.close();
@@ -81,10 +87,12 @@ function useMediaPipeHands(enabled) {
         }
 
         landmarkerRef.current = landmarker;
+        console.log('[MediaPipe] Requesting camera...');
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user', width: 640, height: 480 }
         });
+        console.log('[MediaPipe] Camera stream obtained');
 
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
@@ -102,8 +110,10 @@ function useMediaPipeHands(enabled) {
         video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;left:-9999px;top:-9999px;pointer-events:none;';
         document.body.appendChild(video);
         videoRef.current = video;
+        console.log('[MediaPipe] Video element added to DOM');
 
         await video.play();
+        console.log('[MediaPipe] Video playing, readyState:', video.readyState);
 
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
@@ -113,6 +123,7 @@ function useMediaPipeHands(enabled) {
 
         setIsReady(true);
         setIsActive(true);
+        console.log('[MediaPipe] Detection loop started');
 
         const detect = () => {
           if (!landmarkerRef.current || !videoRef.current || videoRef.current.readyState < 2) {
@@ -122,6 +133,11 @@ function useMediaPipeHands(enabled) {
 
           try {
             const results = landmarkerRef.current.detectForVideo(videoRef.current, performance.now());
+
+            logCounterRef.current++;
+            if (logCounterRef.current % 60 === 0) {
+              console.log('[MediaPipe] detectForVideo result:', results?.landmarks?.length > 0 ? 'Hand found' : 'No hand');
+            }
 
             if (results?.landmarks?.length > 0) {
               const lm = results.landmarks[0];
@@ -167,12 +183,14 @@ function useMediaPipeHands(enabled) {
                 fingersCount: fingersUp,
                 landmarks
               });
+              console.log('[MediaPipe] Hand detected! fingers:', fingersUp, 'isDrawing:', isDrawing);
             } else {
               smoothXRef.current = 0;
               smoothYRef.current = 0;
               setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
             }
           } catch (e) {
+            console.error('[MediaPipe] Error:', e);
             setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
           }
 
@@ -182,6 +200,7 @@ function useMediaPipeHands(enabled) {
         rafRef.current = requestAnimationFrame(detect);
       } catch (err) {
         if (!cancelled) {
+          console.error('[MediaPipe] Init error:', err);
           setError(err.message);
           setIsActive(false);
         }
