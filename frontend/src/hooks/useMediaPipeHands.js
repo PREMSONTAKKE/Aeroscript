@@ -130,7 +130,14 @@ function useMediaPipeHands(enabled) {
           try {
             const results = landmarkerRef.current.detectForVideo(videoRef.current, performance.now());
 
-            if (results.landmarks && results.landmarks.length > 0) {
+            if (!results || !results.landmarks) {
+              console.log('[MediaPipeHands] Results empty or null');
+            } else if (results.landmarks.length === 0) {
+              frameCountRef.current++;
+              if (frameCountRef.current % 30 === 0) {
+                console.log('[MediaPipeHands] No hand in frame. Video dims:', videoRef.current.videoWidth, 'x', videoRef.current.videoHeight);
+              }
+            } else {
               lastDetectedRef.current = Date.now();
               const lm = results.landmarks[0];
 
@@ -172,15 +179,6 @@ function useMediaPipeHands(enabled) {
               frameCountRef.current++;
               if (frameCountRef.current % 30 === 0) {
                 console.log('[MediaPipeHands] Detected:', { x: Math.round(mirroredX), y: Math.round(idxTip.y * 100), isDrawing, fingersCount });
-              }
-            } else {
-              const timeSinceLast = Date.now() - lastDetectedRef.current;
-              if (timeSinceLast > 200) {
-                setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
-              }
-              frameCountRef.current++;
-              if (frameCountRef.current % 150 === 0) {
-                console.log('[MediaPipeHands] No hand detected. Video readyState:', videoRef.current?.readyState, 'Video dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
               }
             }
           } catch (e) {
