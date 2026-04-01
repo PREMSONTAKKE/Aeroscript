@@ -20,6 +20,7 @@ function useMediaPipeHands(enabled) {
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const smoothXRef = useRef(0);
   const smoothYRef = useRef(0);
   const EMA_ALPHA = 0.35;
@@ -33,6 +34,9 @@ function useMediaPipeHands(enabled) {
     if (videoRef.current && videoRef.current.parentNode) {
       videoRef.current.parentNode.removeChild(videoRef.current);
     }
+    if (canvasRef.current && canvasRef.current.parentNode) {
+      canvasRef.current.parentNode.removeChild(canvasRef.current);
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
@@ -44,6 +48,7 @@ function useMediaPipeHands(enabled) {
     smoothXRef.current = 0;
     smoothYRef.current = 0;
     videoRef.current = null;
+    canvasRef.current = null;
     setIsActive(false);
     setIsReady(false);
     setHandState(EMPTY_HAND_STATE);
@@ -90,7 +95,7 @@ function useMediaPipeHands(enabled) {
         console.log('[MediaPipe] Requesting camera...');
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: 640, height: 480 }
+          video: { facingMode: 'user', width: 320, height: 240, frameRate: 30 }
         });
         console.log('[MediaPipe] Camera stream obtained');
 
@@ -107,19 +112,26 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
-        video.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;height:360px;opacity:1;z-index:9999;pointer-events:none;border:2px solid cyan;background:#000;';
-        document.body.appendChild(video);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 240;
+        canvas.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;pointer-events:none;border:2px solid cyan;background:#000;';
+        document.body.appendChild(canvas);
+
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         videoRef.current = video;
-        console.log('[MediaPipe] Video element added to DOM');
+        canvasRef.current = canvas;
+        console.log('[MediaPipe] Video element created');
 
         await new Promise((resolve) => {
-          if (video.readyState >= 3) { resolve(); return; }
-          video.onloadeddata = resolve;
-          video.oncanplay = resolve;
+          video.onloadedmetadata = () => {
+            video.play().then(resolve).catch(() => resolve());
+          };
+          video.onerror = () => resolve();
           setTimeout(resolve, 5000);
         });
-        await video.play();
-        console.log('[MediaPipe] Video playing, readyState:', video.readyState, 'videoWidth:', video.videoWidth, 'videoHeight:', video.videoHeight);
+        console.log('[MediaPipe] Video playing, readyState:', video.readyState);
 
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
@@ -138,7 +150,8 @@ function useMediaPipeHands(enabled) {
           }
 
           try {
-            const results = landmarkerRef.current.detectForVideo(videoRef.current, performance.now());
+            ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+            const results = landmarkerRef.current.detect(canvas);
 
             logCounterRef.current++;
             if (logCounterRef.current % 60 === 0) {
