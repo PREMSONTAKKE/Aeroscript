@@ -11,6 +11,6 @@ services:
       - key: PORT
         value: 10000
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.11.0"
       - key: DISABLE_CAMERA_WEBRTC
         value: "true"
