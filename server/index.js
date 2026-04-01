@@ -37,6 +37,12 @@ const io = new Server(server, {
   transports: ['websocket', 'polling']
 });
 
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  next();
+});
+
 const recognitionService = new RecognitionService();
 const wordRecognitionService = new WordRecognitionService();
 
