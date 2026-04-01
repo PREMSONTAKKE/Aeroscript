@@ -6,4 +6,4 @@ mediapipe==0.10.33
 numpy==1.26.3
 python-socketio==5.10.0
 eventlet==0.34.2
-gunicorn[eventlet]==0.34.2
+gunicorn==25.3.0
