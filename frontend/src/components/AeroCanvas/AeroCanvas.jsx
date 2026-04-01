@@ -497,7 +497,7 @@ const AeroCanvas = forwardRef(function AeroCanvas(
   }), [brushColor, brushWidth, inkType, paintBackground, redoStack, strokes, remoteActiveStrokes]);
 
   return (
-    <div ref={containerRef} className="canvas-container relative h-full w-full overflow-hidden rounded-[28px] border border-white/8 bg-black/40">
+    <div ref={containerRef} className="canvas-container relative h-full w-full overflow-hidden rounded-[28px] border border-white/8 bg-black/40" style={handTrackingEnabled ? { transform: 'scaleX(-1)' } : undefined}>
       <canvas
         ref={canvasRef}
         className="absolute inset-0 h-full w-full touch-none"
