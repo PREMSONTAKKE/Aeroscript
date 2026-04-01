@@ -910,6 +910,7 @@ function WorkspaceView() {
         onSave={handleSave}
         handTrackingEnabled={handTrackingEnabled}
         handTrackingConnected={handTrackingConnected}
+        inputMode={inputMode}
       />
 
       <InputModeSelector

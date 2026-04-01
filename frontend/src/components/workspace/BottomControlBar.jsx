@@ -11,6 +11,7 @@ function BottomControlBar({
   onSave,
   handTrackingEnabled,
   handTrackingConnected,
+  inputMode,
 }) {
   const statusColor = handTrackingConnected ? 'text-emerald-500' : handTrackingEnabled ? 'text-amber-500' : 'text-slate-400';
   const statusText = handTrackingConnected ? 'Live' : handTrackingEnabled ? 'Connecting...' : 'Off';
@@ -19,16 +20,16 @@ function BottomControlBar({
     <div className="bottom-control-bar" aria-label="Bottom controls">
       {/* Left: Camera + Hand */}
       <div className="flex items-center gap-2">
-        <button 
-          className={`bc-btn ${handTrackingEnabled ? 'active' : ''}`} 
-          title="Camera Input" 
+        <button
+          className={`bc-btn ${inputMode === 'camera' ? 'active' : ''}`}
+          title="Camera Input"
           onClick={onCameraClick}
         >
           <Camera size={18} />
         </button>
-        <button 
-          className={`bc-btn ${handTrackingEnabled ? 'active' : ''}`} 
-          title="Hand Tracking" 
+        <button
+          className={`bc-btn ${handTrackingEnabled ? 'active' : ''}`}
+          title="Hand Tracking"
           onClick={onHandClick}
         >
           <Hand size={18} />
