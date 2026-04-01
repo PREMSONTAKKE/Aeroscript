@@ -107,13 +107,19 @@ function useMediaPipeHands(enabled) {
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
-        video.style.cssText = 'position:fixed;top:0;left:0;width:320px;height:240px;opacity:1;z-index:9999;pointer-events:none;border:2px solid cyan;';
+        video.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:480px;height:360px;opacity:1;z-index:9999;pointer-events:none;border:2px solid cyan;background:#000;';
         document.body.appendChild(video);
         videoRef.current = video;
         console.log('[MediaPipe] Video element added to DOM');
 
+        await new Promise((resolve) => {
+          if (video.readyState >= 3) { resolve(); return; }
+          video.onloadeddata = resolve;
+          video.oncanplay = resolve;
+          setTimeout(resolve, 5000);
+        });
         await video.play();
-        console.log('[MediaPipe] Video playing, readyState:', video.readyState);
+        console.log('[MediaPipe] Video playing, readyState:', video.readyState, 'videoWidth:', video.videoWidth, 'videoHeight:', video.videoHeight);
 
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
@@ -136,7 +142,7 @@ function useMediaPipeHands(enabled) {
 
             logCounterRef.current++;
             if (logCounterRef.current % 60 === 0) {
-              console.log('[MediaPipe] detectForVideo result:', results?.landmarks?.length > 0 ? 'Hand found' : 'No hand');
+              console.log('[MediaPipe] detectForVideo result:', results?.landmarks?.length > 0 ? 'Hand found' : 'No hand', 'video:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
             }
 
             if (results?.landmarks?.length > 0) {
