@@ -146,10 +146,8 @@ function useMediaPipeHands(enabled) {
                 y: Math.round(p.y * 100)
               }));
 
-              const mirroredX = 100 - idxTip.x;
-
               setHandState({
-                x: Math.round(mirroredX),
+                x: Math.round(idxTip.x * 100),
                 y: Math.round(idxTip.y * 100),
                 isVisible: true,
                 isDrawing,
