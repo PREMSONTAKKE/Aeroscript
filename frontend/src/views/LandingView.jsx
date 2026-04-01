@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { PenTool, Palette, Type, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import CursorTrail from '../components/AeroCanvas/CursorTrail';
+import { LARGE_STAR_POSITIONS } from '../utils/starField';
+import ParticleWave from '../components/AeroCanvas/ParticleWave';
+import FloatingParticles from '../components/AeroCanvas/FloatingParticles';
 
 const MotionDiv = motion.div;
 const MotionHeading = motion.h2;
 const MotionParagraph = motion.p;
-const STAR_POSITIONS = Array.from({ length: 30 }, () => ({
-  top: `${Math.random() * 100}%`,
-  left: `${Math.random() * 100}%`,
-  animationDelay: `${Math.random() * 5}s`
-}));
+
+const DOT_TEXT = 'AEROSCRIPT';
+const DOT_SIZE = 1;
+const DOT_GAP = 3;
 
 const ModeCard = ({ title, description, icon: Icon, mode, onClick, colorClass }) => (
   <MotionDiv
@@ -21,10 +22,16 @@ const ModeCard = ({ title, description, icon: Icon, mode, onClick, colorClass })
     onClick={() => onClick(mode)}
     className="relative group cursor-pointer"
   >
-    <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-10 group-hover:opacity-20 transition-opacity rounded-[32px] blur-xl`} />
-    <div className="relative glass-panel p-8 rounded-[32px] border border-white/10 bg-black/40 backdrop-blur-3xl h-full flex flex-col items-center text-center">
-      <div className={`p-6 rounded-2xl bg-white/5 ${colorClass.split(' ')[1]} mb-6`}>
-        {React.createElement(Icon, { size: 40 })}
+    <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-10 group-hover:opacity-25 transition-opacity rounded-[32px] blur-xl animate-pulse`} style={{ animationDuration: '3s' }} />
+    <div className="relative glass-panel p-8 rounded-[32px] border border-white/5 bg-transparent backdrop-blur-[8px] h-full flex flex-col items-center text-center overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+      <div className={`relative p-6 rounded-2xl bg-white/5 ${colorClass.split(' ')[1]} mb-6`}>
+        <MotionDiv
+          animate={{ y: [0, -8, 0] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          {React.createElement(Icon, { size: 40 })}
+        </MotionDiv>
       </div>
       <h3 className="text-2xl font-bold text-white mb-2 tracking-wide uppercase">{title}</h3>
       <p className="text-slate-400 text-sm leading-relaxed mb-6">
@@ -36,6 +43,86 @@ const ModeCard = ({ title, description, icon: Icon, mode, onClick, colorClass })
     </div>
   </MotionDiv>
 );
+
+const DotTextCanvas = () => {
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const dotsRef = useRef([]);
+  const startTimeRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const width = 800;
+    const height = 120;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    ctx.scale(dpr, dpr);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = width;
+    offscreen.height = height;
+    const offCtx = offscreen.getContext('2d');
+    offCtx.fillStyle = '#fff';
+    offCtx.font = 'bold 72px monospace';
+    offCtx.textAlign = 'center';
+    offCtx.textBaseline = 'middle';
+    offCtx.fillText('AEROSCRIPT', width / 2, height / 2);
+    const imageData = offCtx.getImageData(0, 0, width, height);
+
+    const targetDots = 100000;
+    const textPixels = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (imageData.data[i] > 128) textPixels.push({ x, y });
+      }
+    }
+
+    const step = Math.max(1, Math.floor(textPixels.length / targetDots));
+    const selectedPixels = [];
+    for (let i = 0; i < textPixels.length; i += step) selectedPixels.push(textPixels[i]);
+
+    dotsRef.current = selectedPixels.map((p, i) => ({
+      x: p.x,
+      y: p.y,
+      delay: i * 0.00003,
+      seed: Math.random() * 1000,
+      flickerSpeed: 0.5 + Math.random() * 2,
+      flickerOffset: Math.random() * Math.PI * 2,
+    }));
+
+    startTimeRef.current = performance.now();
+
+    const animate = (now) => {
+      const elapsed = (now - startTimeRef.current) / 1000;
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < dotsRef.current.length; i++) {
+        const dot = dotsRef.current[i];
+        const progress = Math.min(1, (elapsed - dot.delay) * 2);
+        if (progress <= 0) continue;
+
+        const flicker = 0.6 + 0.4 * Math.sin(elapsed * dot.flickerSpeed + dot.flickerOffset);
+        const alpha = progress * flicker * 0.8;
+
+        ctx.fillStyle = `rgba(96, 165, 250, ${alpha})`;
+        ctx.fillRect(dot.x, dot.y, 1, 1);
+      }
+
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animRef.current);
+  }, []);
+
+  return <canvas ref={canvasRef} className="block" />;
+};
 
 const LandingView = () => {
   const { user, logout } = useAuth();
@@ -71,11 +158,11 @@ const LandingView = () => {
 
   return (
     <div className="min-h-screen bg-[#06080d] flex flex-col items-center p-8 relative overflow-hidden font-sans">
-      <CursorTrail />
+      <ParticleWave scrollProgress={0} />
+      <FloatingParticles />
       
-      {/* Background Star Effect */}
       <div className="absolute inset-0 opacity-20 pointer-events-none">
-        {STAR_POSITIONS.map((star, i) => (
+        {LARGE_STAR_POSITIONS.map((star, i) => (
           <div key={i} className="star animate-pulse" style={{
             top: star.top,
             left: star.left,
@@ -89,44 +176,55 @@ const LandingView = () => {
         ))}
       </div>
 
-      <header className="w-full max-w-7xl flex justify-between items-center mb-16 relative z-10">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
-            A
-          </div>
-          <span className="text-xl font-bold tracking-widest text-white uppercase">AeroScript</span>
+      <MotionDiv
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 2 }}
+        className="absolute inset-0 pointer-events-none overflow-hidden"
+      >
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '4s' }} />
+        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-purple-500/15 rounded-full blur-[80px] animate-pulse" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+        <div className="absolute bottom-1/4 left-1/3 w-72 h-72 bg-emerald-500/15 rounded-full blur-[80px] animate-pulse" style={{ animationDuration: '6s', animationDelay: '2s' }} />
+      </MotionDiv>
+
+      <MotionDiv
+        initial={{ x: 30, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.6 }}
+        className="fixed top-6 right-8 z-20 flex items-center gap-4"
+      >
+        <div className="flex flex-col items-end">
+          <span className="text-[10px] uppercase tracking-widest text-slate-500">Authorized User</span>
+          <span className="text-sm text-slate-200">{user?.email}</span>
         </div>
-        
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] uppercase tracking-widest text-slate-500">Authorized User</span>
-            <span className="text-sm text-slate-200">{user?.email}</span>
-          </div>
-          <button 
-            onClick={logout}
-            className="p-3 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-red-400 hover:bg-red-400/5 transition-all"
-          >
-            <LogOut size={20} />
-          </button>
-        </div>
+        <button 
+          onClick={logout}
+          className="p-3 rounded-xl bg-white/5 border border-white/10 text-slate-500 hover:text-red-400 hover:bg-red-400/5 hover:border-red-400/20 transition-all"
+        >
+          <LogOut size={18} />
+        </button>
+      </MotionDiv>
+
+      <header className="w-full max-w-7xl flex justify-end items-center mb-12 relative z-10">
       </header>
 
       <main className="flex-1 w-full max-w-7xl flex flex-col items-center justify-center relative z-10">
         <div className="text-center mb-16">
-          <MotionHeading 
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="text-5xl font-bold text-white mb-4 tracking-tight"
+          <MotionDiv 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            className="mb-6"
           >
-            Select Your Workspace
-          </MotionHeading>
+            <DotTextCanvas />
+          </MotionDiv>
           <MotionParagraph 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-slate-400 max-w-xl mx-auto"
+            transition={{ delay: 0.3 }}
+            className="text-slate-500 text-[10px] uppercase tracking-[0.3em] mb-4"
           >
-            Choose a specialized mode to begin. Your data and tools will be isolated for a distraction-free experience.
+            Select Your Workspace
           </MotionParagraph>
         </div>
 

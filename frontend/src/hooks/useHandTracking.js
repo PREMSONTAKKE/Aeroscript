@@ -17,7 +17,7 @@ function useHandTracking(enabled) {
 
   useEffect(() => {
     if (!enabled) {
-      return undefined;
+      return () => {};
     }
 
     const socket = io(HAND_TRACKING_SOCKET_URL, {
@@ -28,9 +28,18 @@ function useHandTracking(enabled) {
       reconnectionDelayMax: 10000
     });
 
-    const handleConnect = () => setIsConnected(true);
-    const handleDisconnect = () => setIsConnected(false);
-    const handleConnectError = () => setIsConnected(false);
+    const handleConnect = () => {
+      console.log('[HandTracking] Connected to socket server');
+      setIsConnected(true);
+    };
+    const handleDisconnect = () => {
+      console.log('[HandTracking] Disconnected from socket server');
+      setIsConnected(false);
+    };
+    const handleConnectError = (err) => {
+      console.error('[HandTracking] Connection error:', err);
+      setIsConnected(false);
+    };
     const handleHandData = (data) => {
       setHandState({
         x: typeof data?.x === 'number' ? data.x : 0,

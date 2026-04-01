@@ -8,7 +8,6 @@ export default function ShareDialog({ isOpen, onClose, canvasRef, title = 'My Ar
   const [shareLinks, setShareLinks] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [platform, setPlatform] = useState(null);
 
   const handleGenerateLinks = async (selectedPlatform = null) => {
     if (!user?.token) return;
@@ -17,7 +16,6 @@ export default function ShareDialog({ isOpen, onClose, canvasRef, title = 'My Ar
     if (!snapshot?.hasContent) return;
 
     setLoading(true);
-    setPlatform(selectedPlatform);
     try {
       const result = await shareApi.generateLinks(user.token, {
         thumbnail: snapshot.thumbnail,

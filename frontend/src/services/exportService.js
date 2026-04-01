@@ -17,6 +17,18 @@ export const EXPORT_SIZES = {
   CUSTOM: { width: null, height: null, label: 'Custom' }
 };
 
+export const FILE_SIZES = {
+  SIZE_50KB: { kb: 50, label: '50 KB' },
+  SIZE_100KB: { kb: 100, label: '100 KB' },
+  SIZE_250KB: { kb: 250, label: '250 KB' },
+  SIZE_500KB: { kb: 500, label: '500 KB' },
+  SIZE_1MB: { kb: 1024, label: '1 MB' },
+  SIZE_2MB: { kb: 2048, label: '2 MB' },
+  SIZE_5MB: { kb: 5120, label: '5 MB' },
+  SIZE_10MB: { kb: 10240, label: '10 MB' },
+  SIZE_20MB: { kb: 20480, label: '20 MB' },
+};
+
 /**
  * Validate canvas element
  */
@@ -34,6 +46,26 @@ const validateCanvas = (canvas) => {
   }
   
   return true;
+};
+
+/**
+ * Estimate pixel dimensions based on target file size
+ * This is an approximation - actual size depends on image content and compression
+ */
+export const estimateDimensionsFromFileSize = (targetSizeKB, format = 'png') => {
+  // Rough estimation: PNG is roughly 3 bytes per pixel, JPG is roughly 1 byte per pixel
+  const bytesPerPixel = format === 'jpg' ? 1 : 3;
+  const targetBytes = targetSizeKB * 1024;
+  const estimatedPixels = targetBytes / bytesPerPixel;
+  
+  // Assume square or 4:3 aspect ratio
+  const side = Math.round(Math.sqrt(estimatedPixels));
+  
+  // Round to nearest power of 2 or common size
+  const commonSizes = [256, 512, 768, 1024, 1280, 1536, 1920, 2048, 2560, 3072, 4096];
+  let finalSize = commonSizes.find(s => s >= side) || side;
+  
+  return { width: finalSize, height: finalSize };
 };
 
 /**

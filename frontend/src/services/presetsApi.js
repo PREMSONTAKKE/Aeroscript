@@ -60,67 +60,71 @@ export const brushPresetsApi = {
   },
 
   getStylePresets: async () => {
-    return fetchWithAuth('/api/brush-presets/styles/presets', {});
+    return fetchWithAuth('/api/brush-presets/styles', {});
   },
 };
 
 export const profileApi = {
-  get: async (token) => {
+  async get(token) {
     return fetchWithAuth('/api/profile', {}, token);
   },
 
-  update: async (token, profile) => {
+  async update(token, profileData) {
     return fetchWithAuth('/api/profile', {
       method: 'PUT',
-      body: JSON.stringify(profile),
+      body: JSON.stringify(profileData),
     }, token);
   },
 
-  updatePreferences: async (token, preferences) => {
+  async updatePreferences(token, preferences) {
     return fetchWithAuth('/api/profile/preferences', {
-      method: 'POST',
-      body: JSON.stringify({ preferences }),
+      method: 'PATCH',
+      body: JSON.stringify(preferences),
     }, token);
   },
 
-  recordAnalytics: async (token, analytics) => {
-    return fetchWithAuth('/api/profile/analytics', {
-      method: 'POST',
-      body: JSON.stringify(analytics),
-    }, token);
-  },
-
-  getAnalyticsSummary: async (token, period = 'week') => {
+  async getAnalyticsSummary(token, period = 'week') {
     return fetchWithAuth(`/api/profile/analytics/summary?period=${period}`, {}, token);
   },
 
-  getHistory: async (token, limit = 30) => {
-    return fetchWithAuth(`/api/profile/history?limit=${limit}`, {}, token);
+  async getDrawingStats(token) {
+    return fetchWithAuth('/api/profile/analytics/drawings', {}, token);
+  },
+
+  async getInkUsage(token) {
+    return fetchWithAuth('/api/profile/analytics/ink-usage', {}, token);
+  },
+
+  async recordAnalytics(token, data) {
+    return fetchWithAuth('/api/profile/analytics/record', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, token);
   },
 };
 
 export const shareApi = {
-  generateLinks: async (token, { artworkData, thumbnail, title, platform }) => {
-    return fetchWithAuth('/api/share/share', {
-      method: 'POST',
-      body: JSON.stringify({ artworkData, thumbnail, title, platform }),
-    }, token);
-  },
-
-  download: (token, artwork, format = 'png') => {
-    const url = `${API_URL}/api/share/download?artwork=${encodeURIComponent(artwork)}&format=${format}`;
-    return fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-  },
-
-  export: async (token, data) => {
-    const response = await fetchWithAuth('/api/share/export', {
+  generateLinks: async (token, data) => {
+    return fetchWithAuth('/api/share/generate', {
       method: 'POST',
       body: JSON.stringify(data),
     }, token);
-    return response;
   },
+
+  getPublic: async (shareId) => {
+    return fetchWithAuth(`/api/share/${shareId}`, {});
+  },
+
+  recordShare: async (token, shareId, platform) => {
+    return fetchWithAuth(`/api/share/${shareId}/track`, {
+      method: 'POST',
+      body: JSON.stringify({ platform }),
+    }, token);
+  },
+};
+
+export default {
+  brushPresetsApi,
+  profileApi,
+  shareApi,
 };

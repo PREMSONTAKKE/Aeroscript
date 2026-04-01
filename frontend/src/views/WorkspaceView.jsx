@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, LogOut, Moon, Sun } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, LogOut, Moon, Sun, User, Palette, LayoutGrid, History, SlidersHorizontal, Menu } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AeroCanvas from '../components/AeroCanvas/AeroCanvas';
 import PredictionOverlay from '../components/PredictionOverlay';
@@ -10,16 +10,22 @@ import ModeSidebar from '../components/workspace/ModeSidebar';
 import SaveSessionDialog from '../components/workspace/SaveSessionDialog';
 import SessionHistoryPanel from '../components/workspace/SessionHistoryPanel';
 import WorkspaceToolbar from '../components/workspace/WorkspaceToolbar';
+import BottomControlBar from '../components/workspace/BottomControlBar';
 import ToastViewport from '../components/ui/ToastViewport';
 import InputModeSelector from '../components/ui/InputModeSelector';
 import PartyModal from '../components/party/PartyModal';
 import PartyButton from '../components/party/PartyButton';
+import BrushPresetPanel from '../components/workspace/BrushPresetPanel';
+import ProfilePanel from '../components/workspace/ProfilePanel';
+import ShareDialog from '../components/workspace/ShareDialog';
 import { useAuth } from '../context/AuthContext';
 import { getModeConfig, MODE_CONFIGS } from '../config/modes';
 import useHandTracking from '../hooks/useHandTracking';
 import useToast from '../hooks/useToast';
+import { useDrawingAnalytics } from '../hooks/useDrawingAnalytics';
+import { useParty } from '../hooks/useParty';
 import { deleteSession, fetchHistory, predictCharacters, saveSession, updateSession } from '../services/api';
-import partyService from '../services/partyService';
+import { profileApi } from '../services/presetsApi';
 
 const mapSession = (session) => ({
   id: session._id,
@@ -37,7 +43,6 @@ function WorkspaceView() {
   const navigate = useNavigate();
   const canvasRef = useRef(null);
   const recognitionTimeoutRef = useRef(null);
-  const currentPartyRef = useRef(null);
   const { user, logout } = useAuth();
   const [theme, setTheme] = useState('dark');
   const [brushColor, setBrushColor] = useState('#e2e8f0');
@@ -58,11 +63,31 @@ function WorkspaceView() {
   const [inputMode, setInputMode] = useState('mouse');
   const [showInputSelector, setShowInputSelector] = useState(false);
   const [showPartyModal, setShowPartyModal] = useState(false);
-  const [currentParty, setCurrentParty] = useState(null);
-  const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [remoteCursors, setRemoteCursors] = useState({});
+  const [modesSidebarVisible, setModesSidebarVisible] = useState(false);
+  const [historySidebarVisible, setHistorySidebarVisible] = useState(false);
+  const [showTopControls, setShowTopControls] = useState(false);
+  const [showSidebarMenu, setShowSidebarMenu] = useState(false);
   const { toasts, pushToast, dismissToast } = useToast();
   const { isConnected: handTrackingConnected, handState } = useHandTracking(handTrackingEnabled);
+  const { trackStroke, trackSessionEnd } = useDrawingAnalytics(user?.userId);
+
+  const {
+    currentParty,
+    remoteCursors,
+    connect: partyConnect,
+    leaveParty,
+    draw: partyDraw,
+    streamDraw: partyStreamDraw,
+    syncCanvas,
+    clearCanvas: partyClearCanvas,
+    cursorMove: partyCursorMove,
+    updatePresence: partyUpdatePresence,
+    setPartyState
+  } = useParty(canvasRef, pushToast);
+
+  const [showBrushPresetPanel, setShowBrushPresetPanel] = useState(false);
+  const [showProfilePanel, setShowProfilePanel] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   const modeConfig = getModeConfig(mode);
   const modeOptions = useMemo(() => Object.entries(MODE_CONFIGS), []);
@@ -72,8 +97,6 @@ function WorkspaceView() {
         return 'hand tracking';
       case 'touch':
         return 'touch screen';
-      case 'screen':
-        return 'screen canvas';
       case 'mouse':
       default:
         return 'mouse or touchpad';
@@ -88,21 +111,34 @@ function WorkspaceView() {
   });
 
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem('aeroscript_theme');
-    const savedHandTracking = window.localStorage.getItem('aeroscript_hand_tracking');
+    const loadPreferences = async () => {
+      const savedTheme = window.localStorage.getItem('aeroscript_theme');
+      const savedHandTracking = window.localStorage.getItem('aeroscript_hand_tracking');
 
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      setTheme(savedTheme);
-    }
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        setTheme(savedTheme);
+      }
 
-    if (savedHandTracking === 'true' || savedHandTracking === 'false') {
-      setHandTrackingEnabled(savedHandTracking === 'true');
-    }
-  }, []);
+      if (savedHandTracking === 'true' || savedHandTracking === 'false') {
+        setHandTrackingEnabled(savedHandTracking === 'true');
+      }
 
-  useEffect(() => {
-    currentPartyRef.current = currentParty;
-  }, [currentParty]);
+      if (user?.token) {
+        try {
+          const profileRes = await profileApi.get(user.token);
+          const dbTheme = profileRes.profile?.preferences?.theme;
+          if (dbTheme === 'light' || dbTheme === 'dark') {
+            setTheme(dbTheme);
+            window.localStorage.setItem('aeroscript_theme', dbTheme);
+          }
+        } catch (err) {
+          console.error('Failed to load preferences:', err);
+        }
+      }
+    };
+
+    loadPreferences();
+  }, [user?.token]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -116,118 +152,54 @@ function WorkspaceView() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const target = e.target;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
       if (e.key === 'Escape') {
-        setSidebarVisible((prev) => !prev);
+        setModesSidebarVisible(false);
+        setHistorySidebarVisible(false);
+        setShowSidebarMenu(false);
+      }
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'm' || e.key === 'M') {
+          e.preventDefault();
+          setModesSidebarVisible((prev) => !prev);
+        }
+        if (e.key === 'h' || e.key === 'H') {
+          e.preventDefault();
+          setHistorySidebarVisible((prev) => !prev);
+        }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, { passive: false });
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   useEffect(() => {
-    if (!user?.token) return;
-
-    partyService.connect(user.token);
-
-    partyService.onDraw((data) => {
-      if (canvasRef.current) {
-        canvasRef.current.remoteDraw(data);
+    if (!showSidebarMenu) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.sidebar-menu')) {
+        setShowSidebarMenu(false);
       }
-      setCurrentParty((prev) => prev ? {
-        ...prev,
-        board: partyService.board || prev.board
-      } : prev);
-    });
-
-    partyService.onClear((data) => {
-      if (canvasRef.current) {
-        canvasRef.current.clear();
-        pushToast({ title: 'Canvas Cleared', description: `${data.userName} cleared the canvas.`, tone: 'info' });
-      }
-      setCurrentParty((prev) => prev ? {
-        ...prev,
-        board: partyService.board || prev.board
-      } : prev);
-    });
-
-    partyService.onCanvasSync((data) => {
-      if (canvasRef.current) {
-        canvasRef.current.replaceStrokes(data.board?.strokes || []);
-      }
-      setCurrentParty((prev) => prev ? {
-        ...prev,
-        board: data.board || prev.board
-      } : prev);
-      pushToast({
-        title: 'Shared Board Updated',
-        description: `${data.userName} synced the party canvas.`,
-        tone: 'info',
-        duration: 1800
-      });
-    });
-
-    partyService.onPresence((data) => {
-      if (data.board && (!currentPartyRef.current || currentPartyRef.current.code !== data.party.code)) {
-        canvasRef.current?.replaceStrokes(data.board.strokes || []);
-      }
-      setCurrentParty((prev) => ({
-        ...(prev || {}),
-        ...data.party,
-        members: data.members || [],
-        board: data.board || prev?.board || null
-      }));
-    });
-
-    partyService.onMemberJoined((member) => {
-      pushToast({ title: 'Member Joined', description: `${member.userName} joined the party.`, tone: 'success' });
-    });
-
-    partyService.onMemberLeft((member) => {
-      pushToast({ title: 'Member Left', description: `${member.userName} left the party.`, tone: 'info' });
-    });
-
-    partyService.onCursorMove((data) => {
-      setRemoteCursors(prev => ({
-        ...prev,
-        [data.socketId]: {
-          x: data.x,
-          y: data.y,
-          userName: data.userName,
-          isDrawing: data.isDrawing,
-          lastUpdated: Date.now()
-        }
-      }));
-    });
-
-    partyService.onError((error) => {
-      pushToast({ title: 'Party Error', description: error, tone: 'danger' });
-    });
-
-    return () => {
-      partyService.disconnect();
     };
-  }, [pushToast, user?.token]);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showSidebarMenu]);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setRemoteCursors((current) => {
-        const nextEntries = Object.entries(current).filter(([, cursor]) => Date.now() - cursor.lastUpdated < 4000);
-        if (nextEntries.length === Object.keys(current).length) {
-          return current;
-        }
-        return Object.fromEntries(nextEntries);
-      });
-    }, 1500);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
+    if (user?.token) {
+      partyConnect(user.token);
+    }
+  }, [user?.token, partyConnect]);
 
   useEffect(() => {
     if (currentParty) {
-      partyService.updatePresence(inputMode);
+      partyUpdatePresence(inputMode);
     }
-  }, [currentParty, inputMode]);
+  }, [currentParty, inputMode, partyUpdatePresence]);
 
   useEffect(() => {
     setBrushWidth(modeConfig.defaultBrushWidth);
@@ -257,7 +229,8 @@ function WorkspaceView() {
     if (recognitionTimeoutRef.current) {
       clearTimeout(recognitionTimeoutRef.current);
     }
-  }, []);
+    trackSessionEnd();
+  }, [trackSessionEnd]);
 
   useEffect(() => {
     let isMounted = true;
@@ -379,10 +352,10 @@ function WorkspaceView() {
     setPredictions([]);
     setRecognitionError('');
     if (currentParty) {
-      partyService.clearCanvas();
+      partyClearCanvas();
     }
     canvasRef.current?.clear();
-    setCurrentParty((prev) => prev ? {
+    setPartyState((prev) => prev ? {
       ...prev,
       board: {
         ...(prev.board || {}),
@@ -404,7 +377,7 @@ function WorkspaceView() {
     canvasRef.current?.loadSession(session);
     setIsDirty(false);
     if (currentParty) {
-      partyService.syncCanvas(session.strokes || session.drawingData || [], {
+      syncCanvas(session.strokes || session.drawingData || [], {
         color: session.settings.color || modeConfig.colors[0] || '#e2e8f0',
         width: session.settings.width || modeConfig.defaultBrushWidth,
         ink: session.settings.ink || modeConfig.inks[0],
@@ -417,13 +390,23 @@ function WorkspaceView() {
   const handleStrokeCommit = (nextStrokes, committedStroke) => {
     schedulePrediction();
 
+    if (committedStroke) {
+      trackStroke({
+        inkType,
+        brushColor,
+        brushWidth,
+        pointCount: committedStroke.points?.length || 0,
+        bounds: committedStroke.bounds
+      });
+    }
+
     if (!currentParty || !committedStroke) {
       return;
     }
 
     const lastPoint = committedStroke.points[committedStroke.points.length - 1];
-    partyService.draw([committedStroke], true, lastPoint?.x, lastPoint?.y, getPartySettings(), inputMode);
-    setCurrentParty((prev) => prev ? {
+    partyDraw([committedStroke], true, lastPoint?.x, lastPoint?.y, getPartySettings(), inputMode);
+    setPartyState((prev) => prev ? {
       ...prev,
       board: {
         ...(prev.board || {}),
@@ -435,6 +418,16 @@ function WorkspaceView() {
       }
     } : prev);
   };
+
+  const handleStrokeUpdate = useCallback((strokeId, points, style, isDrawing) => {
+    if (!currentParty) return;
+    partyStreamDraw(strokeId, points, {
+      color: style?.brushColor || brushColor,
+      width: style?.brushWidth || brushWidth,
+      ink: style?.inkType || inkType,
+      mode
+    }, isDrawing);
+  }, [currentParty, partyStreamDraw, brushColor, brushWidth, inkType, mode]);
 
   const handleSave = async () => {
     const snapshot = canvasRef.current?.getSnapshot();
@@ -578,95 +571,229 @@ function WorkspaceView() {
       return;
     }
 
+    if (currentParty && !MODE_CONFIGS[nextMode]?.supportsParty) {
+      leaveParty();
+    }
+    if (showBrushPresetPanel && !MODE_CONFIGS[nextMode]?.supportsParty) {
+      setShowBrushPresetPanel(false);
+    }
     navigate(`/workspace/${nextMode}`);
   };
 
   const handlePartyJoined = (party) => {
-    setCurrentParty((prev) => ({ ...(prev || {}), ...party }));
+    setPartyState((prev) => ({ ...(prev || {}), ...party }));
     setShowPartyModal(false);
     const snapshot = canvasRef.current?.getSnapshot();
     if (party.members?.length === 1 && snapshot?.hasContent) {
-      partyService.syncCanvas(snapshot.drawingData, getPartySettings(), inputMode);
+      syncCanvas(snapshot.drawingData, getPartySettings(), inputMode);
     }
     pushToast({ title: 'Party Joined', description: `Welcome to ${party.name}!`, tone: 'success' });
   };
 
   const handleLeaveParty = () => {
-    setCurrentParty(null);
-    setRemoteCursors({});
+    leaveParty();
     pushToast({ title: 'Party Left', description: 'You have left the party.', tone: 'info' });
   };
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_35%),linear-gradient(180deg,#081018_0%,#04070c_100%)] text-slate-100">
-      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${modeConfig.accent}`} />
+    <div 
+      className="min-h-screen overflow-visible rounded-none m-0 p-0 w-full bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_35%),linear-gradient(180deg,#081018_0%,#04070c_100%)] text-slate-100"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+        
+        if (e.key === 'Escape') {
+          setModesSidebarVisible(false);
+          setHistorySidebarVisible(false);
+          setShowSidebarMenu(false);
+        }
+        if (e.ctrlKey || e.metaKey) {
+          if (e.key === 'm' || e.key === 'M') {
+            e.preventDefault();
+            setModesSidebarVisible((prev) => !prev);
+          }
+          if (e.key === 'h' || e.key === 'H') {
+            e.preventDefault();
+            setHistorySidebarVisible((prev) => !prev);
+          }
+        }
+      }}
+    >
+      <div className={`pointer-events-none absolute inset-0 rounded-none bg-gradient-to-br ${modeConfig.accent}`} />
 
-      <header className="relative z-10 flex items-center justify-between border-b border-white/8 px-6 py-4 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
+      <header className="relative z-50 w-full flex items-center justify-between border-b border-white/8 border-t border-t-white/8 px-6 py-4 backdrop-blur-xl overflow-visible shadow-lg m-0 rounded-none">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/')}
-            className="rounded-xl border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:bg-white/10"
+            className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-300 hover:shadow-[0_0_15px_rgba(0,230,255,0.15)]"
+            data-tooltip="Back to home"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-0.5" />
           </button>
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">Workspace</p>
-            <h1 className="text-xl font-semibold text-white">{modeConfig.label}</h1>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-gradient-to-br from-cyan-400/20 to-blue-500/10 p-2">
+              {React.createElement(modeConfig.icon, { size: 20, className: 'text-cyan-400' })}
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-white">{modeConfig.label}</h1>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <PartyButton
-            onClick={() => setShowPartyModal(true)}
-            isActive={!!currentParty}
-            memberCount={currentParty?.members?.length || 0}
-          />
-          <button
-            onClick={() => setShowInputSelector(true)}
-            className="rounded-xl border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:bg-white/10"
-            title="Select input mode"
-          >
-            {inputMode === 'camera' ? '📷' : inputMode === 'touch' ? '👆' : inputMode === 'screen' ? '🖥️' : '🖱️'}
-          </button>
-          <button
-            onClick={() => setSidebarVisible((prev) => !prev)}
-            className="rounded-xl border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:bg-white/10"
-            title="Toggle sidebar (Esc)"
-          >
-            {sidebarVisible ? '📊' : '📈'}
-          </button>
-          <button
-            onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-            className="rounded-xl border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:bg-white/10"
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <div className="hidden text-right md:block">
-            <p className="text-[10px] uppercase tracking-[0.28em] text-slate-500">Authorized User</p>
-            <p className="text-sm text-slate-200">{user?.email}</p>
+        <div className="flex items-center gap-2">
+          {modeConfig.supportsParty && (
+            <>
+              <PartyButton
+                onClick={() => setShowPartyModal(true)}
+                isActive={!!currentParty}
+                memberCount={currentParty?.members?.length || 0}
+              />
+              <div className="mx-1 h-6 w-px bg-white/10" />
+            </>
+            )}
+          
+          <div className="relative sidebar-menu">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSidebarMenu((prev) => !prev);
+              }}
+              className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-300"
+              data-tooltip="Toggle panels (Ctrl+M/H/A)"
+            >
+              <Menu size={18} className="transition-transform group-hover:scale-110" />
+            </button>
+            
+            {showSidebarMenu && (
+              <div className="absolute right-0 top-full z-[9999] mt-2 w-48 rounded-xl border border-white/10 bg-[#09111a]/95 p-2 shadow-xl backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModesSidebarVisible((prev) => !prev);
+                    setShowSidebarMenu(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                    modesSidebarVisible ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <LayoutGrid size={14} /> Modes
+                  </span>
+                  <span className="text-xs opacity-60">{modesSidebarVisible ? 'On' : 'Off'}</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHistorySidebarVisible((prev) => !prev);
+                    setShowSidebarMenu(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                    historySidebarVisible ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <History size={14} /> History
+                  </span>
+                  <span className="text-xs opacity-60">{historySidebarVisible ? 'On' : 'Off'}</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTopControls((prev) => !prev);
+                    setShowSidebarMenu(false);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                    showTopControls ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal size={14} /> Top Controls
+                  </span>
+                  <span className="text-xs opacity-60">{showTopControls ? 'On' : 'Off'}</span>
+                </button>
+              </div>
+            )}
           </div>
+          
+          {modeConfig.supportsParty && (
+            <button
+              onClick={() => setShowBrushPresetPanel(true)}
+              className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-purple-400/30 hover:bg-purple-400/10 hover:text-purple-300 hover:shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+              data-tooltip="Brush presets"
+            >
+              <Palette size={18} className="transition-transform group-hover:scale-110" />
+            </button>
+          )}
+          
+          <button
+            onClick={() => setShowProfilePanel(true)}
+            className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-emerald-400/30 hover:bg-emerald-400/10 hover:text-emerald-300"
+            data-tooltip="Profile & analytics"
+          >
+            <User size={18} className="transition-transform group-hover:scale-110" />
+          </button>
+          
+          <button
+            onClick={async () => {
+              const newTheme = theme === 'dark' ? 'light' : 'dark';
+              setTheme(newTheme);
+              if (user?.token) {
+                try {
+                  await profileApi.updatePreferences(user.token, { theme: newTheme });
+                } catch (err) {
+                  console.error('Failed to save theme preference:', err);
+                }
+              }
+            }}
+            className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300"
+            data-tooltip={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {theme === 'dark' ? (
+              <Sun size={18} className="transition-transform group-hover:scale-110" />
+            ) : (
+              <Moon size={18} className="transition-transform group-hover:scale-110" />
+            )}
+          </button>
+          
+          <div className="mx-1 h-6 w-px bg-white/10" />
+          
+          <div className="hidden rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-right lg:block">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Logged in as</p>
+            <p className="text-sm font-medium text-slate-200">{user?.email}</p>
+          </div>
+          
           <button
             onClick={logout}
-            className="rounded-xl border border-white/10 bg-white/5 p-3 text-slate-200 transition hover:bg-red-500/10 hover:text-red-200"
+            className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+            data-tooltip="Sign out"
           >
-            <LogOut size={18} />
+            <LogOut size={18} className="transition-transform group-hover:scale-110" />
           </button>
         </div>
       </header>
 
-      <div className="relative z-10 grid h-[calc(100vh-81px)] grid-cols-1 gap-5 p-5 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
-        {sidebarVisible && (
-          <ModeSidebar mode={mode} modeOptions={modeOptions} onSelect={handleModeNavigation} />
+      <div className={`relative z-10 grid h-[calc(100vh-81px-60px)] gap-0 ${
+        modesSidebarVisible && historySidebarVisible 
+          ? 'grid-cols-[280px_minmax(0,1fr)_320px]'
+          : modesSidebarVisible 
+            ? 'grid-cols-[280px_minmax(0,1fr)]'
+            : historySidebarVisible 
+              ? 'grid-cols-[minmax(0,1fr)_320px]'
+              : 'grid-cols-1'
+      }`}>
+        {modesSidebarVisible && (
+          <div className="shadow-[4px_0_20px_rgba(0,0,0,0.5)]">
+            <ModeSidebar mode={mode} modeOptions={modeOptions} onSelect={handleModeNavigation} />
+          </div>
         )}
 
-        <main className={`glass-panel flex min-h-0 flex-col rounded-[28px] p-4 md:p-5 ${!sidebarVisible ? 'xl:col-span-2' : ''}`}>
-          <HandStatusPanel
-            enabled={handTrackingEnabled}
-            connected={handTrackingConnected}
-            handState={handState}
-            inputMode={inputMode}
-          />
-
+        <main className={`glass-panel flex min-h-0 flex-col ${
+          !modesSidebarVisible && !historySidebarVisible ? 'col-span-1' : ''
+        }`}>
           {currentParty ? (
             <div className="mb-4 grid gap-3 lg:grid-cols-3">
               <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/8 p-4">
@@ -687,35 +814,17 @@ function WorkspaceView() {
             </div>
           ) : null}
 
-          <WorkspaceToolbar
-            modeConfig={modeConfig}
-            inkType={inkType}
-            setInkType={setInkType}
-            brushColor={brushColor}
-            setBrushColor={setBrushColor}
-            brushWidth={brushWidth}
-            setBrushWidth={setBrushWidth}
-            onUndo={() => canvasRef.current?.undo()}
-            onRedo={() => canvasRef.current?.redo()}
-            onClear={handleNewCanvas}
-            onSave={handleSave}
-            onExport={() => setExportDialogOpen(true)}
-            isSaving={isSaving}
-            handTrackingEnabled={handTrackingEnabled}
-            handTrackingConnected={handTrackingConnected}
-            onToggleHandTracking={() => {
-              setHandTrackingEnabled((current) => {
-                const next = !current;
-                pushToast({
-                  title: next ? 'Hand Tracking Enabled' : 'Hand Tracking Disabled',
-                  description: next ? 'Waiting for live camera input.' : 'Pointer drawing stays active.',
-                  tone: 'info',
-                  duration: 2200
-                });
-                return next;
-              });
-            }}
-          />
+          {showTopControls && (
+            <WorkspaceToolbar
+              modeConfig={modeConfig}
+              inkType={inkType}
+              setInkType={setInkType}
+              brushColor={brushColor}
+              setBrushColor={setBrushColor}
+              brushWidth={brushWidth}
+              setBrushWidth={setBrushWidth}
+            />
+          )}
 
           <div className="relative min-h-0 flex-1">
             <AeroCanvas
@@ -727,9 +836,10 @@ function WorkspaceView() {
               inkType={inkType}
               onDirtyChange={setIsDirty}
               onStrokeCommit={handleStrokeCommit}
+              onStrokeUpdate={handleStrokeUpdate}
               onPointerActivity={(point, isDrawing) => {
                 if (currentParty && point) {
-                  partyService.cursorMove(point.x, point.y, isDrawing);
+                  partyCursorMove(point.x, point.y, isDrawing);
                 }
               }}
               handTrackingEnabled={handTrackingEnabled}
@@ -738,7 +848,7 @@ function WorkspaceView() {
               isPartyHost={currentParty?.host === user?.userId}
               onClearCanvas={() => {
                 if (currentParty) {
-                  partyService.clearCanvas();
+                  partyClearCanvas();
                 }
                 canvasRef.current?.clear();
               }}
@@ -774,19 +884,42 @@ function WorkspaceView() {
           </div>
         </main>
 
-        {sidebarVisible && (
-          <SessionHistoryPanel
-            modeConfig={modeConfig}
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            isLoading={isLoading}
-            isDirty={isDirty}
-            onRefresh={refreshHistory}
-            onLoad={handleSessionLoad}
-            onDelete={handleDelete}
-          />
+        {historySidebarVisible && (
+          <div className="shadow-[-4px_0_20px_rgba(0,0,0,0.5)]">
+            <SessionHistoryPanel
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              isLoading={isLoading}
+              onRefresh={refreshHistory}
+              onLoad={handleSessionLoad}
+              onDelete={handleDelete}
+            />
+          </div>
         )}
       </div>
+
+      <BottomControlBar
+        onCameraClick={() => setShowInputSelector(true)}
+        onHandClick={() => {
+          setHandTrackingEnabled((current) => {
+            const next = !current;
+            pushToast({
+              title: next ? 'Hand Tracking Enabled' : 'Hand Tracking Disabled',
+              description: next ? 'Waiting for live camera input.' : 'Pointer drawing stays active.',
+              tone: 'info',
+              duration: 2200
+            });
+            return next;
+          });
+        }}
+        onExport={() => setExportDialogOpen(true)}
+        onUndo={() => canvasRef.current?.undo()}
+        onRedo={() => canvasRef.current?.redo()}
+        onErase={handleNewCanvas}
+        onSave={handleSave}
+        handTrackingEnabled={handTrackingEnabled}
+        handTrackingConnected={handTrackingConnected}
+      />
 
       <InputModeSelector
         isOpen={showInputSelector}
@@ -830,6 +963,50 @@ function WorkspaceView() {
         isOpen={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
         canvasRef={canvasRef}
+      />
+
+      {showBrushPresetPanel && (
+        <BrushPresetPanel
+          isOpen={showBrushPresetPanel}
+          onClose={() => setShowBrushPresetPanel(false)}
+          currentSettings={{
+            inkType,
+            brushColor,
+            brushWidth
+          }}
+          onApplyPreset={(settings) => {
+            if (settings.inkType) setInkType(settings.inkType);
+            if (settings.brushColor) setBrushColor(settings.brushColor);
+            if (settings.brushWidth) setBrushWidth(settings.brushWidth);
+            setShowBrushPresetPanel(false);
+            pushToast({ title: 'Preset Applied', description: 'Your brush settings have been updated.', tone: 'success' });
+          }}
+          onShare={() => {
+            setShowBrushPresetPanel(false);
+            setShowShareDialog(true);
+          }}
+        />
+      )}
+
+      {showProfilePanel && (
+        <ProfilePanel
+          isOpen={showProfilePanel}
+          onClose={() => setShowProfilePanel(false)}
+          userId={user?.userId}
+          pushToast={pushToast}
+          theme={theme}
+          setTheme={setTheme}
+          mode={mode}
+          currentParty={currentParty}
+        />
+      )}
+
+      <ShareDialog
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        canvasRef={canvasRef}
+        sessionName={sessions.find((s) => s.id === activeSessionId)?.name || `${modeConfig.label} Session`}
+        mode={mode}
       />
 
       <ConfirmDialog

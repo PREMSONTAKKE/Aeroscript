@@ -1,8 +1,8 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { profileApi } from '../services/presetsApi';
 import { useAuth } from '../context/AuthContext';
 
-export function useDrawingAnalytics() {
+export function useDrawingAnalytics(userId) {
   const { user } = useAuth();
   const analyticsRef = useRef({
     strokesCount: 0,
@@ -15,19 +15,25 @@ export function useDrawingAnalytics() {
     modes: [],
     currentMode: 'draw',
     lastStrokeTime: null,
+    initialized: false,
+  });
+  const [currentStats, setCurrentStats] = useState({
+    strokesCount: 0,
+    sessionStartTime: null,
   });
 
   useEffect(() => {
-    analyticsRef.current.sessionStartTime = Date.now();
-    analyticsRef.current.drawingStartTime = Date.now();
-    
-    return () => {
-      flushAnalytics();
-    };
+    if (!analyticsRef.current.initialized) {
+      analyticsRef.current.sessionStartTime = Date.now();
+      analyticsRef.current.drawingStartTime = Date.now();
+      analyticsRef.current.initialized = true;
+    }
   }, []);
 
   const flushAnalytics = useCallback(async () => {
-    if (!user?.token) return;
+    const effectiveUser = user;
+    const token = effectiveUser?.token || userId;
+    if (!token) return;
     
     const analytics = analyticsRef.current;
     if (analytics.strokesCount === 0) return;
@@ -36,7 +42,7 @@ export function useDrawingAnalytics() {
       (analytics.drawingStartTime ? Date.now() - analytics.drawingStartTime : 0);
     
     try {
-      await profileApi.recordAnalytics(user.token, {
+      await profileApi.recordAnalytics(token, {
         strokes: analytics.strokesCount,
         drawingTime,
         sessions: 1,
@@ -48,7 +54,27 @@ export function useDrawingAnalytics() {
     } catch (error) {
       console.error('Failed to flush analytics:', error);
     }
-  }, [user?.token]);
+  }, [user, userId]);
+
+  const trackSessionEnd = useCallback(() => {
+    const effectiveUser = user;
+    const token = effectiveUser?.token || userId;
+    const analytics = analyticsRef.current;
+    if (analytics.strokesCount === 0 || !token) return;
+    
+    const drawingTime = analytics.totalDrawingTime + 
+      (analytics.drawingStartTime ? Date.now() - analytics.drawingStartTime : 0);
+    
+    profileApi.recordAnalytics(token, {
+      strokes: analytics.strokesCount,
+      drawingTime,
+      sessions: 1,
+      brushWidths: [...new Set(analytics.brushWidths)],
+      colors: [...new Set(analytics.colors)],
+      inkTypes: [...new Set(analytics.inkTypes)],
+      modes: [...new Set(analytics.modes)],
+    }).catch(error => console.error('Failed to record session analytics:', error));
+  }, [user, userId]);
 
   const trackStroke = useCallback((stroke) => {
     const analytics = analyticsRef.current;
@@ -76,11 +102,16 @@ export function useDrawingAnalytics() {
     }
     analytics.lastStrokeTime = Date.now();
     analytics.drawingStartTime = Date.now();
+    
+    setCurrentStats({
+      strokesCount: analytics.strokesCount,
+      sessionStartTime: analytics.sessionStartTime,
+    });
   }, []);
 
-  const trackModeChange = useCallback((mode) => {
-    analyticsRef.current.currentMode = mode;
-    analyticsRef.current.modes.push(mode);
+  const trackModeChange = useCallback((newMode) => {
+    analyticsRef.current.currentMode = newMode;
+    analyticsRef.current.modes.push(newMode);
   }, []);
 
   const getStrokesPerMinute = useCallback(() => {
@@ -102,24 +133,27 @@ export function useDrawingAnalytics() {
   }, []);
 
   const getAnalyticsSummary = useCallback(async () => {
-    if (!user?.token) return null;
+    const effectiveUser = user;
+    const token = effectiveUser?.token || userId;
+    if (!token) return null;
     
     try {
-      const response = await profileApi.getAnalyticsSummary(user.token, 'week');
+      const response = await profileApi.getAnalyticsSummary(token, 'week');
       return response.summary;
     } catch (error) {
       console.error('Failed to get analytics summary:', error);
       return null;
     }
-  }, [user?.token]);
+  }, [user, userId]);
 
   return {
     trackStroke,
     trackModeChange,
+    trackSessionEnd,
     flushAnalytics,
     getStrokesPerMinute,
     getSessionDuration,
     getAnalyticsSummary,
-    currentStats: analyticsRef.current,
+    currentStats,
   };
 }

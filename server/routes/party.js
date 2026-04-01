@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const Party = require('../models/Party');
+const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
@@ -285,6 +286,43 @@ router.post('/:code/lock', auth, async (req, res) => {
   } catch (err) {
     console.error('Lock party error:', err);
     res.status(500).json({ error: 'Failed to update party lock status' });
+  }
+});
+
+router.get('/:code/members-achievements', auth, async (req, res) => {
+  try {
+    const party = await Party.findOne({ 
+      code: req.params.code.toUpperCase(),
+      isActive: true
+    });
+
+    if (!party) {
+      return res.status(404).json({ error: 'Party not found' });
+    }
+
+    const isMember = party.members.some(m => m.user?.toString() === req.userId);
+    if (!isMember) {
+      return res.status(403).json({ error: 'You must be a party member' });
+    }
+
+    const memberIds = party.members.map(m => m.user).filter(Boolean);
+    const users = await User.find({ _id: { $in: memberIds } }).select('email displayName achievements');
+
+    const membersWithData = party.members.map(member => {
+      const user = users.find(u => u._id.toString() === member.user?.toString());
+      return {
+        userId: member.user,
+        name: user?.displayName || member.name || user?.email?.split('@')[0] || 'Unknown',
+        email: user?.email || '',
+        achievements: user?.achievements || [],
+        joinedAt: member.joinedAt
+      };
+    });
+
+    res.json({ members: membersWithData });
+  } catch (err) {
+    console.error('Members achievements error:', err);
+    res.status(500).json({ error: 'Failed to fetch members achievements' });
   }
 });
 

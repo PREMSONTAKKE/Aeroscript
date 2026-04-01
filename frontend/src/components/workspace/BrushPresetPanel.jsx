@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Trash2, Share2, Download, Plus, X, Check, Sliders, Palette } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Save, Trash2, Plus, X, Sliders, Palette } from 'lucide-react';
 import { brushPresetsApi } from '../../services/presetsApi';
 import { useAuth } from '../../context/AuthContext';
+import ModalShell from './ModalShell';
 
 const DEFAULT_BRUSH_SETTINGS = {
   color: '#e2e8f0',
@@ -20,8 +21,7 @@ export default function BrushPresetPanel({
   isOpen, 
   onClose, 
   currentSettings,
-  onApplyPreset,
-  onSaveAsPreset 
+  onApplyPreset 
 }) {
   const { user } = useAuth();
   const [presets, setPresets] = useState([]);
@@ -37,19 +37,7 @@ export default function BrushPresetPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (isOpen && user?.token) {
-      loadPresets();
-    }
-  }, [isOpen, user?.token]);
-
-  useEffect(() => {
-    if (isOpen) {
-      loadStylePresets();
-    }
-  }, [isOpen]);
-
-  const loadPresets = async () => {
+  const loadPresets = useCallback(async () => {
     if (!user?.token) return;
     setLoading(true);
     setError(null);
@@ -62,16 +50,28 @@ export default function BrushPresetPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.token]);
 
-  const loadStylePresets = async () => {
+  const loadStylePresets = useCallback(async () => {
     try {
       const { presets } = await brushPresetsApi.getStylePresets();
       setStylePresets(presets || []);
     } catch (err) {
       console.error('Failed to load style presets:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && user?.token) {
+      loadPresets();
+    }
+  }, [isOpen, user?.token, loadPresets]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadStylePresets();
+    }
+  }, [isOpen, loadStylePresets]);
 
   const handleCreatePreset = async () => {
     if (!newPreset.name.trim()) {
@@ -115,7 +115,7 @@ export default function BrushPresetPanel({
   const handleApplyPreset = async (preset) => {
     if (onApplyPreset) {
       onApplyPreset({
-        color: preset.brush.color,
+        brushColor: preset.brush.color,
         width: preset.brush.width,
         inkType: preset.brush.inkType,
       });
@@ -147,28 +147,31 @@ export default function BrushPresetPanel({
     setShowCreateModal(true);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass-panel w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col rounded-3xl">
-        <div className="flex items-center justify-between border-b border-white/10 p-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 p-2">
-              <Sliders size={20} className="text-cyan-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Brush Presets</h2>
-              <p className="text-xs text-slate-400">Save and apply custom brush configurations</p>
-            </div>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      size="2xl"
+      showHeader={false}
+      className="max-h-[85vh] flex flex-col overflow-hidden"
+    >
+      <div className="flex items-center justify-between border-b border-white/10 p-4 -mx-6 -mt-6 mb-0">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-gradient-to-br from-cyan-500/20 to-purple-500/20 p-2">
+            <Sliders size={20} className="text-cyan-400" />
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
-          >
-            <X size={18} />
-          </button>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Brush Presets</h2>
+            <p className="text-xs text-slate-400">Save and apply custom brush configurations</p>
+          </div>
         </div>
+        <button
+          onClick={onClose}
+          className="rounded-xl border border-white/10 bg-white/5 p-2 text-slate-400 transition hover:bg-white/10 hover:text-white"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
         <div className="flex border-b border-white/10">
           <button
@@ -324,24 +327,24 @@ export default function BrushPresetPanel({
         </div>
 
         {showCreateModal && (
-          <div className="border-t border-white/10 p-4">
-            <h3 className="mb-4 text-sm font-medium text-white">Create New Preset</h3>
+          <div className="border-t border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-[#0a0f1a]">
+            <h3 className="mb-4 text-sm font-medium text-slate-800 dark:text-white">Create New Preset</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs text-slate-400">Preset Name</label>
+                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Preset Name</label>
                 <input
                   type="text"
                   value={newPreset.name}
                   onChange={(e) => setNewPreset(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="My Custom Brush"
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-cyan-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder-slate-500"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Color</label>
+                  <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Color</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
@@ -350,12 +353,12 @@ export default function BrushPresetPanel({
                         ...prev, 
                         brush: { ...prev.brush, color: e.target.value }
                       }))}
-                      className="h-10 w-full rounded-lg border border-white/10 bg-transparent"
+                      className="h-10 w-full rounded-lg border border-slate-200 bg-transparent dark:border-white/10"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Width</label>
+                  <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Width</label>
                   <input
                     type="number"
                     min="1"
@@ -365,18 +368,18 @@ export default function BrushPresetPanel({
                       ...prev, 
                       brush: { ...prev.brush, width: parseInt(e.target.value) || 4 }
                     }))}
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-slate-400">Ink Type</label>
+                  <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">Ink Type</label>
                   <select
                     value={newPreset.brush.inkType}
                     onChange={(e) => setNewPreset(prev => ({ 
                       ...prev, 
                       brush: { ...prev.brush, inkType: e.target.value }
                     }))}
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-cyan-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
                   >
                     <option value="Graphite">Graphite</option>
                     <option value="Pencil">Pencil</option>
@@ -389,12 +392,12 @@ export default function BrushPresetPanel({
               </div>
 
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-slate-400">
+                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                   <input
                     type="checkbox"
                     checked={newPreset.isPublic}
                     onChange={(e) => setNewPreset(prev => ({ ...prev, isPublic: e.target.checked }))}
-                    className="rounded border-white/20 bg-white/5 text-cyan-500 focus:ring-cyan-500"
+                    className="rounded border-slate-300 bg-white text-cyan-500 focus:ring-cyan-500 dark:border-white/20 dark:bg-white/5"
                   />
                   Make public
                 </label>
@@ -403,7 +406,7 @@ export default function BrushPresetPanel({
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2 text-sm text-slate-400 transition hover:bg-white/10"
+                  className="flex-1 rounded-lg border border-slate-200 bg-white py-2 text-sm text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10"
                 >
                   Cancel
                 </button>
@@ -416,9 +419,8 @@ export default function BrushPresetPanel({
                 </button>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+            </div>
+          )}
+    </ModalShell>
   );
 }

@@ -12,6 +12,7 @@ class PartyService {
     this.members = [];
     this.board = null;
     this.onDrawCallback = null;
+    this.onStreamDrawCallback = null;
     this.onClearCallback = null;
     this.onCursorMoveCallback = null;
     this.onMemberJoinedCallback = null;
@@ -29,10 +30,11 @@ class PartyService {
 
     this.socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
+      upgrade: true
     });
 
     this.socket.on('connect', () => {
@@ -188,6 +190,13 @@ class PartyService {
         }
       });
 
+      this.socket.off('stream-draw');
+      this.socket.on('stream-draw', (data) => {
+        if (this.onStreamDrawCallback) {
+          this.onStreamDrawCallback(data);
+        }
+      });
+
       this.socket.off('canvas-synced');
       this.socket.on('canvas-synced', (data) => {
         this.board = data.board;
@@ -307,6 +316,12 @@ class PartyService {
   draw(strokes, isDrawing, x, y, settings, inputMode) {
     if (this.socket?.connected && this.partyCode) {
       this.socket.emit('draw', { strokes, isDrawing, x, y, settings, inputMode });
+    }
+  }
+
+  streamDraw(strokeId, points, style, isDrawing) {
+    if (this.socket?.connected && this.partyCode) {
+      this.socket.emit('stream-draw', { strokeId, points, style, isDrawing });
     }
   }
 
@@ -450,6 +465,10 @@ class PartyService {
 
   onDraw(callback) {
     this.onDrawCallback = callback;
+  }
+
+  onStreamDraw(callback) {
+    this.onStreamDrawCallback = callback;
   }
 
   onClear(callback) {

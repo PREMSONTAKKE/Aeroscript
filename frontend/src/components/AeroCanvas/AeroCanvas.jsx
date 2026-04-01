@@ -122,6 +122,7 @@ const AeroCanvas = forwardRef(function AeroCanvas(
     inkType,
     onDirtyChange,
     onStrokeCommit,
+    onStrokeUpdate,
     onPointerActivity,
     handTrackingEnabled,
     handState,
@@ -135,7 +136,9 @@ const AeroCanvas = forwardRef(function AeroCanvas(
   const activeInputRef = useRef(null);
   const activePointsRef = useRef([]);
   const dprRef = useRef(1);
+  const activeStrokeIdRef = useRef(null);
   const [strokes, setStrokes] = useState([]);
+  const [remoteActiveStrokes, setRemoteActiveStrokes] = useState({});
   const [redoStack, setRedoStack] = useState([]);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -159,8 +162,12 @@ const AeroCanvas = forwardRef(function AeroCanvas(
   }, [paintBackground]);
 
   useEffect(() => {
-    redraw(strokes);
-  }, [strokes, redraw]);
+    const remoteStrokesArray = Object.entries(remoteActiveStrokes).map(([id, s]) => ({
+      ...s,
+      strokeId: id
+    }));
+    redraw([...strokes, ...remoteStrokesArray]);
+  }, [strokes, remoteActiveStrokes, redraw]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -199,9 +206,11 @@ const AeroCanvas = forwardRef(function AeroCanvas(
     drawingRef.current = true;
     activeInputRef.current = source;
     activePointsRef.current = [point];
+    activeStrokeIdRef.current = `local-${Date.now()}-${Math.random()}`;
     setRedoStack([]);
     onPointerActivity?.(point, true);
-  }, [onPointerActivity]);
+    onStrokeUpdate?.(activeStrokeIdRef.current, [point], currentStrokeTemplate, true);
+  }, [onPointerActivity, onStrokeUpdate, currentStrokeTemplate]);
 
   const updateStroke = useCallback((point, source = activeInputRef.current) => {
     if (!drawingRef.current || activeInputRef.current !== source) {
@@ -215,7 +224,8 @@ const AeroCanvas = forwardRef(function AeroCanvas(
     };
     redraw([...strokes, previewStroke]);
     onPointerActivity?.(point, true);
-  }, [currentStrokeTemplate, onPointerActivity, redraw, strokes]);
+    onStrokeUpdate?.(activeStrokeIdRef.current, [...activePointsRef.current], currentStrokeTemplate, true);
+  }, [currentStrokeTemplate, onPointerActivity, onStrokeUpdate, redraw, strokes]);
 
   const endStroke = useCallback((source = activeInputRef.current) => {
     if (!drawingRef.current || activeInputRef.current !== source) {
@@ -230,6 +240,7 @@ const AeroCanvas = forwardRef(function AeroCanvas(
 
     const committedStroke = {
       ...currentStrokeTemplate,
+      strokeId: activeStrokeIdRef.current,
       points: activePointsRef.current.length === 1
         ? [
             ...activePointsRef.current,
@@ -244,10 +255,12 @@ const AeroCanvas = forwardRef(function AeroCanvas(
 
     const nextStrokes = [...strokes, committedStroke];
     activePointsRef.current = [];
+    activeStrokeIdRef.current = null;
     setStrokes(nextStrokes);
     setIsDirty(true);
     onStrokeCommit?.(nextStrokes, committedStroke);
     onPointerActivity?.(committedStroke.points[committedStroke.points.length - 1], false);
+    onStrokeUpdate?.(committedStroke.strokeId, committedStroke.points, currentStrokeTemplate, false);
   }, [currentStrokeTemplate, onPointerActivity, onStrokeCommit, strokes]);
 
   const getPointerPoint = (event) => {
@@ -348,6 +361,25 @@ const AeroCanvas = forwardRef(function AeroCanvas(
       
       setStrokes((prev) => [...prev, ...newStrokes]);
       setIsDirty(true);
+    },
+    remoteUpdateStroke(strokeId, points, style, isDrawing) {
+      if (!isDrawing) {
+        setRemoteActiveStrokes((prev) => {
+          const next = { ...prev };
+          delete next[strokeId];
+          return next;
+        });
+        return;
+      }
+      setRemoteActiveStrokes((prev) => ({
+        ...prev,
+        [strokeId]: {
+          points,
+          brushColor: style?.color || style?.brushColor || brushColor,
+          brushWidth: style?.width || style?.brushWidth || brushWidth,
+          inkType: style?.ink || style?.inkType || inkType
+        }
+      }));
     },
     undo() {
       if (!strokes.length) {
@@ -460,7 +492,7 @@ const AeroCanvas = forwardRef(function AeroCanvas(
 
       return grayscale;
     }
-  }), [brushColor, brushWidth, inkType, paintBackground, redoStack, strokes]);
+  }), [brushColor, brushWidth, inkType, paintBackground, redoStack, strokes, remoteActiveStrokes]);
 
   return (
     <div ref={containerRef} className="canvas-container relative h-full w-full overflow-hidden rounded-[28px] border border-white/8 bg-black/40">
@@ -468,23 +500,24 @@ const AeroCanvas = forwardRef(function AeroCanvas(
         ref={canvasRef}
         className="absolute inset-0 h-full w-full touch-none"
         onPointerDown={(event) => {
-          if (inputMode === 'camera') return;
+          if (inputMode === 'camera' || inputMode === 'touch') return;
           event.currentTarget.setPointerCapture(event.pointerId);
           beginStroke(getPointerPoint(event), 'pointer');
         }}
         onPointerMove={(event) => {
-          if (inputMode === 'camera') return;
+          if (inputMode === 'camera' || inputMode === 'touch') return;
           if (!drawingRef.current) {
             onPointerActivity?.(getPointerPoint(event), false);
+            return;
           }
           updateStroke(getPointerPoint(event), 'pointer');
         }}
         onPointerUp={() => {
-          if (inputMode === 'camera') return;
+          if (inputMode === 'camera' || inputMode === 'touch') return;
           endStroke('pointer');
         }}
         onPointerLeave={() => {
-          if (inputMode === 'camera') return;
+          if (inputMode === 'camera' || inputMode === 'touch') return;
           onPointerActivity?.(null, false);
           endStroke('pointer');
         }}
