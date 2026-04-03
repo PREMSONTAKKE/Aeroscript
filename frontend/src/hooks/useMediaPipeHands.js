@@ -24,7 +24,7 @@ function useMediaPipeHands(enabled) {
   const smoothYRef = useRef(0);
   const prevXRef = useRef(null);
   const prevYRef = useRef(null);
-  const EMA_ALPHA = 0.5;
+  const EMA_ALPHA = 0.3;
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -76,7 +76,7 @@ function useMediaPipeHands(enabled) {
           numHands: 1,
           minHandDetectionConfidence: 0.5,
           minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5
+          minTrackingConfidence: 0.7
         });
 
         if (cancelled) {
