@@ -24,7 +24,7 @@ function useMediaPipeHands(enabled) {
   const smoothYRef = useRef(0);
   const prevXRef = useRef(null);
   const prevYRef = useRef(null);
-  const EMA_ALPHA = 0.3;
+  const EMA_ALPHA = 0.7;
 
   const stop = useCallback(() => {
     if (rafRef.current) {
