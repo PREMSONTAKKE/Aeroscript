@@ -159,8 +159,6 @@ const emitPartyPresence = async (code, ioInstance) => {
 };
 
 io.on('connection', (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id}`);
-
   socket.on('join-party', async ({ code, userId, userName }) => {
     try {
       const normalizedCode = code.toUpperCase().trim();
@@ -182,9 +180,6 @@ io.on('connection', (socket) => {
       }
       partyRooms.get(normalizedCode).add(socket.id);
 
-      socket.data.partyCode = normalizedCode;
-      socket.data.userId = userId;
-      socket.data.userName = userName;
       socket.data.partyCode = normalizedCode;
       socket.data.userId = userId;
       socket.data.userName = userName;
@@ -212,8 +207,6 @@ io.on('connection', (socket) => {
       });
 
       await emitPartyPresence(normalizedCode, io);
-
-      console.log(`🎉 ${userName} joined party ${normalizedCode}`);
     } catch (err) {
       console.error('Join party error:', err);
       socket.emit('party-error', { error: 'Failed to join party' });
@@ -245,7 +238,6 @@ io.on('connection', (socket) => {
         });
       }
 
-      console.log(`👋 ${socket.data.userName} left party ${code}`);
       delete socket.data.partyCode;
     }
   });
@@ -461,62 +453,50 @@ io.on('connection', (socket) => {
         });
       }
 
-      console.log(`🔌 Socket disconnected: ${socket.id} from party ${code}`);
     } else {
-      console.log(`🔌 Socket disconnected: ${socket.id}`);
     }
   });
 });
 
 // --- Auth Routes ---
 app.post('/api/auth/signup', async (req, res) => {
-  console.log('📝 Signup attempt:', req.body.email);
   const { email, password } = req.body;
   try {
     if (!ensureDatabaseReady(res)) return;
     let user = await User.findOne({ email });
     if (user) {
-      console.log('⚠️ Signup failed: Email already exists');
       return res.status(400).json({ error: 'Email already exists. Please Sign In.' });
     }
 
     user = new User({ email, password });
     await user.save();
-    console.log('✅ User registered:', email);
 
     const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, email: user.email, userId: user._id });
   } catch (err) {
-    console.error('❌ Signup error:', err);
-    // Write to a debug file so I can read it even if terminal is mangled
-    require('fs').appendFileSync('error_log.txt', `\n[${new Date().toISOString()}] Signup Error: ${err.stack}\n`);
+    console.error('Signup error:', err);
     res.status(500).json({ error: 'Server error during signup', details: err.message });
   }
 });
 
 app.post('/api/auth/signin', async (req, res) => {
-  console.log('🔑 Signin attempt:', req.body.email);
   const { email, password } = req.body;
   try {
     if (!ensureDatabaseReady(res)) return;
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('⚠️ Signin failed: Account not found');
       return res.status(400).json({ error: 'Account not found. Please Sign Up.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log('⚠️ Signin failed: Incorrect password');
       return res.status(400).json({ error: 'Incorrect password' });
     }
 
-    console.log('✅ User signed in:', email);
     const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, email: user.email, userId: user._id });
   } catch (err) {
-    console.error('❌ Signin error:', err);
-    require('fs').appendFileSync('error_log.txt', `\n[${new Date().toISOString()}] Signin Error: ${err.stack}\n`);
+    console.error('Signin error:', err);
     res.status(500).json({ error: 'Server error during signin', details: err.message });
   }
 });
@@ -978,8 +958,5 @@ app.post('/api/profile/analytics/record', auth, async (req, res) => {
 
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 AeroScript Server V2.5.1 [HOTFIX-APPLIED]`);
-  console.log(`📡 Listening at http://0.0.0.0:${PORT}`);
-  console.log(`✅ API routes registered: /api/auth/signup, /api/auth/signin, /api/auth/google, /api/profile`);
-  console.log(`🎮 Socket.IO ready for real-time collaboration`);
+  console.log(`Server running on port ${PORT}`);
 });

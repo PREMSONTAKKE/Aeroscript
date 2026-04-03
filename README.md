@@ -4,93 +4,69 @@ A real-time collaborative drawing web application with AI-powered handwriting re
 
 ## Features
 
-- 🎨 **Drawing Modes** - Signature, Draw, and Write modes
-- 🤝 **Party Mode** - Real-time collaborative drawing
-- 📊 **Analytics** - Track your drawing statistics
-- 💾 **Session History** - Save and load your drawings
-- 📤 **Export** - Export to PNG, JPG, or PDF
-- 🎯 **ML Predictions** - AI-powered handwriting recognition (requires trained models)
+- **Drawing Modes** - Signature, Draw, and Write modes
+- **Party Mode** - Real-time collaborative drawing
+- **Analytics** - Track your drawing statistics
+- **Session History** - Save and load your drawings
+- **Export** - Export to PNG, JPG, or PDF
+- **ML Predictions** - AI-powered handwriting recognition
 
 ## Quick Start
 
-### Option 1: One-Click Start (Linux/Mac)
-```bash
-# Make sure MongoDB is running first!
-./start-all.sh
-```
-
-### Option 2: Manual Start
-
-**1. Prerequisites**
+### Prerequisites
 - Node.js v18+
 - MongoDB (local or Atlas)
 
-**2. Clone and Setup**
+### Setup
 ```bash
 git clone https://github.com/PREMSONTAKKE/Aeroscript.git
 cd Aeroscript
+```
 
-# Install dependencies
+### Install dependencies
+```bash
 cd server && npm install && cd ..
 cd frontend && npm install && cd ..
 ```
 
-**3. Configure**
+### Configure
 ```bash
-# Copy the example env file
 cp server/.env.example server/.env
 # Edit server/.env with your MongoDB URI and JWT secret
 ```
 
-**4. Run**
+### Run
 ```bash
 # Terminal 1 - Server
-cd server
-node index.js
+cd server && node index.js
 
 # Terminal 2 - Frontend
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
 
-**5. Open Browser**
+### Open Browser
 - Frontend: http://localhost:5173
 - Server API: http://localhost:5002
 
-## Scripts
+## Deployment
 
-| Script | Description |
-|--------|-------------|
-| `start.bat` | Windows setup (check dependencies) |
-| `start.sh` | Linux/Mac setup (check dependencies) |
-| `start-all.sh` | Start both server & frontend (Linux/Mac) |
+### Frontend (Vercel)
+Deploy `frontend/` to Vercel. Set environment variables:
+- `VITE_API_URL` - Your backend URL
+- `VITE_SOCKET_URL` - Your backend URL (same as API)
+- `VITE_GOOGLE_CLIENT_ID` - Google OAuth Client ID
 
-## ML Training (Optional)
-
-To enable handwriting prediction:
-```bash
-cd server
-
-# Train character recognition (EMNIST)
-npm run train-ml
-
-# Train word recognition (IAM)
-npm run train-word-ml
-```
-
-## Docker Deployment
-
-```bash
-docker-compose up --build
-```
-
-Access at: http://localhost
+### Backend (Railway/Render)
+Deploy `server/` to Railway or Render. Set environment variables:
+- `MONGODB_URI` - MongoDB connection string
+- `JWT_SECRET` - Secret for JWT signing
+- `PORT` - Server port (default: 5002)
 
 ## Tech Stack
 
-- **Frontend**: React, Vite, Tailwind CSS, Framer Motion
-- **Backend**: Express, Socket.io, MongoDB
-- **ML**: Python (scikit-learn, PyTorch), TensorFlow.js
+- **Frontend**: React, Vite, Tailwind CSS
+- **Backend**: Express, Socket.IO, MongoDB
+- **ML**: TensorFlow.js (browser-based hand tracking)
 - **Auth**: JWT, bcrypt
 
 ## License

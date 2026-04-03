@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
-import { Mouse, Touchpad, Check, AlertTriangle } from 'lucide-react';
+import React from 'react';
+import { Mouse, Touchpad, Check } from 'lucide-react';
 import ModalShell from '../workspace/ModalShell';
 
 function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
-  const [permissionError, setPermissionError] = useState('');
-  const [isRequesting, setIsRequesting] = useState(false);
-
   const modes = [
     {
       id: 'mouse',
@@ -24,7 +21,6 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
   ];
 
   const handleSelect = (modeId) => {
-    setPermissionError('');
     onSelect(modeId);
   };
 
@@ -37,13 +33,6 @@ function InputModeSelector({ isOpen, currentMode, onSelect, onClose }) {
       size="lg"
       zIndex="z-[200]"
     >
-      {permissionError && (
-        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-400/30 bg-red-400/10 p-4">
-          <AlertTriangle size={20} className="text-red-400 shrink-0" />
-          <p className="text-sm text-red-300">{permissionError}</p>
-        </div>
-      )}
-
       <div className="grid gap-3 -mt-2">
         {modes.map((mode) => (
           <button

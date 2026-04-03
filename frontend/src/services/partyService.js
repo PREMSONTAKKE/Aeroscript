@@ -38,11 +38,9 @@ class PartyService {
     });
 
     this.socket.on('connect', () => {
-      console.log('✅ Socket connected:', this.socket.id);
     });
 
     this.socket.on('disconnect', () => {
-      console.log('❌ Socket disconnected');
     });
 
     this.socket.on('connect_error', (err) => {
@@ -130,7 +128,6 @@ class PartyService {
         this.isHost = data.party.host === payload.userId;
         this.isLocked = data.party.isLocked || false;
         this.currentParty = data.party;
-        console.log('🎉 Joined party:', data.party.code);
         if (this.onPresenceCallback) {
           this.onPresenceCallback({
             party: data.party,

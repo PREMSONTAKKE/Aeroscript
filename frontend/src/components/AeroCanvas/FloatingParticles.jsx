@@ -37,7 +37,6 @@ const FloatingParticles = () => {
 
     const animate = () => {
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];

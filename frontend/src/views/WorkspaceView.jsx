@@ -5,7 +5,6 @@ import AeroCanvas from '../components/AeroCanvas/AeroCanvas';
 import PredictionOverlay from '../components/PredictionOverlay';
 import ConfirmDialog from '../components/workspace/ConfirmDialog';
 import ExportDialog from '../components/workspace/ExportDialog';
-import HandStatusPanel from '../components/workspace/HandStatusPanel';
 import ModeSidebar from '../components/workspace/ModeSidebar';
 import SaveSessionDialog from '../components/workspace/SaveSessionDialog';
 import SessionHistoryPanel from '../components/workspace/SessionHistoryPanel';
