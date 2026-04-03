@@ -76,7 +76,7 @@ function useMediaPipeHands(enabled) {
           numHands: 1,
           minHandDetectionConfidence: 0.5,
           minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.7
+          minTrackingConfidence: 0.3
         });
 
         if (cancelled) {
