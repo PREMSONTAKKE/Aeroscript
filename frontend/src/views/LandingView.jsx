@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { PenTool, Palette, Type, LogOut } from 'lucide-react';
+import { PenTool, Palette, Type, LogOut, HelpCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { LARGE_STAR_POSITIONS } from '../utils/starField';
 import ParticleWave from '../components/AeroCanvas/ParticleWave';
 import FloatingParticles from '../components/AeroCanvas/FloatingParticles';
+import TutorialModal from '../components/workspace/TutorialModal';
 
 const MotionDiv = motion.div;
 const MotionHeading = motion.h2;
@@ -127,6 +128,7 @@ const DotTextCanvas = () => {
 const LandingView = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const handleModeSelect = (mode) => {
     navigate(`/workspace/${mode}`);
@@ -193,6 +195,13 @@ const LandingView = () => {
         transition={{ delay: 0.5, duration: 0.6 }}
         className="fixed top-6 right-8 z-20 flex items-center gap-4"
       >
+        <button
+          onClick={() => setShowTutorial(true)}
+          className="p-3 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/5 hover:border-cyan-400/20 transition-all"
+          title="Help & Tutorial"
+        >
+          <HelpCircle size={18} />
+        </button>
         <div className="flex flex-col items-end">
           <span className="text-[10px] uppercase tracking-widest text-slate-500">Authorized User</span>
           <span className="text-sm text-slate-200">{user?.email}</span>
@@ -245,6 +254,11 @@ const LandingView = () => {
       <footer className="mt-16 text-slate-700 text-[10px] tracking-[0.3em] uppercase select-none relative z-10">
         Professional Writing Intelligence • Version 2.5.0
       </footer>
+
+      <TutorialModal
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+      />
     </div>
   );
 };

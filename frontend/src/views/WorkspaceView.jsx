@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, LogOut, Moon, Sun, User, Palette, LayoutGrid, History, SlidersHorizontal, Menu } from 'lucide-react';
+import { ArrowLeft, LogOut, Moon, Sun, User, Palette, LayoutGrid, History, SlidersHorizontal, Menu, HelpCircle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AeroCanvas from '../components/AeroCanvas/AeroCanvas';
 import PredictionOverlay from '../components/PredictionOverlay';
@@ -17,6 +17,7 @@ import PartyButton from '../components/party/PartyButton';
 import BrushPresetPanel from '../components/workspace/BrushPresetPanel';
 import ProfilePanel from '../components/workspace/ProfilePanel';
 import ShareDialog from '../components/workspace/ShareDialog';
+import TutorialModal from '../components/workspace/TutorialModal';
 import { useAuth } from '../context/AuthContext';
 import { getModeConfig, MODE_CONFIGS } from '../config/modes';
 import useMediaPipeHands from '../hooks/useMediaPipeHands';
@@ -66,6 +67,7 @@ function WorkspaceView() {
   const [historySidebarVisible, setHistorySidebarVisible] = useState(false);
   const [showTopControls, setShowTopControls] = useState(false);
   const [showSidebarMenu, setShowSidebarMenu] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const { toasts, pushToast, dismissToast } = useToast();
   const { isActive: handTrackingConnected, handState } = useMediaPipeHands(handTrackingEnabled);
   const { trackStroke, trackSessionEnd } = useDrawingAnalytics(user?.userId);
@@ -645,6 +647,14 @@ function WorkspaceView() {
             </>
             )}
           
+          <button
+            onClick={() => setShowTutorial(true)}
+            className="group rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-all hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-300"
+            data-tooltip="Help & Tutorial"
+          >
+            <HelpCircle size={18} className="transition-transform group-hover:scale-110" />
+          </button>
+
           <div className="relative sidebar-menu">
             <button
               type="button"
@@ -1011,6 +1021,11 @@ function WorkspaceView() {
       />
 
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+
+      <TutorialModal
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+      />
     </div>
   );
 }
