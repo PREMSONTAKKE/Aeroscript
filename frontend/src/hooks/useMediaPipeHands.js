@@ -20,10 +20,11 @@ function useMediaPipeHands(enabled) {
   const streamRef = useRef(null);
   const rafRef = useRef(null);
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const smoothXRef = useRef(0);
   const smoothYRef = useRef(0);
-  const EMA_ALPHA = 0.35;
+  const prevXRef = useRef(null);
+  const prevYRef = useRef(null);
+  const EMA_ALPHA = 0.5;
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -32,9 +33,6 @@ function useMediaPipeHands(enabled) {
     }
     if (videoRef.current && videoRef.current.parentNode) {
       videoRef.current.parentNode.removeChild(videoRef.current);
-    }
-    if (canvasRef.current && canvasRef.current.parentNode) {
-      canvasRef.current.parentNode.removeChild(canvasRef.current);
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
@@ -46,8 +44,9 @@ function useMediaPipeHands(enabled) {
     }
     smoothXRef.current = 0;
     smoothYRef.current = 0;
+    prevXRef.current = null;
+    prevYRef.current = null;
     videoRef.current = null;
-    canvasRef.current = null;
     setIsActive(false);
     setIsReady(false);
     setHandState(EMPTY_HAND_STATE);
@@ -88,8 +87,9 @@ function useMediaPipeHands(enabled) {
         landmarkerRef.current = landmarker;
 
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: 320, height: 240, frameRate: 30 }
+          video: { facingMode: 'user', width: 640, height: 480, frameRate: 30 }
         });
+
         if (cancelled) {
           stream.getTracks().forEach(t => t.stop());
           landmarker.close();
@@ -98,21 +98,19 @@ function useMediaPipeHands(enabled) {
 
         streamRef.current = stream;
 
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden;pointer-events:none;z-index:-1;';
+        document.body.appendChild(container);
+
         const video = document.createElement('video');
         video.srcObject = stream;
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
+        video.style.cssText = 'width:640px;height:480px;';
+        container.appendChild(video);
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 320;
-        canvas.height = 240;
-        canvas.style.cssText = 'position:fixed;top:0;left:0;width:320px;height:240px;opacity:0.3;z-index:9999;pointer-events:none;';
-        document.body.appendChild(canvas);
-
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         videoRef.current = video;
-        canvasRef.current = canvas;
 
         await new Promise((resolve) => {
           video.onloadedmetadata = () => {
@@ -138,8 +136,7 @@ function useMediaPipeHands(enabled) {
           }
 
           try {
-            ctx.drawImage(videoRef.current, 0, 0, 320, 240);
-            const results = landmarkerRef.current.detectForVideo(canvas, performance.now());
+            const results = landmarkerRef.current.detectForVideo(videoRef.current, performance.now());
 
             if (results?.landmarks?.length > 0) {
               const lm = results.landmarks[0];
@@ -163,12 +160,17 @@ function useMediaPipeHands(enabled) {
               const rawX = idxTip.x;
               const rawY = idxTip.y;
 
-              if (smoothXRef.current === 0 && smoothYRef.current === 0) {
+              if (prevXRef.current === null || prevYRef.current === null) {
                 smoothXRef.current = rawX;
                 smoothYRef.current = rawY;
+                prevXRef.current = rawX;
+                prevYRef.current = rawY;
+              } else {
+                smoothXRef.current = EMA_ALPHA * rawX + (1 - EMA_ALPHA) * smoothXRef.current;
+                smoothYRef.current = EMA_ALPHA * rawY + (1 - EMA_ALPHA) * smoothYRef.current;
+                prevXRef.current = rawX;
+                prevYRef.current = rawY;
               }
-              smoothXRef.current = EMA_ALPHA * rawX + (1 - EMA_ALPHA) * smoothXRef.current;
-              smoothYRef.current = EMA_ALPHA * rawY + (1 - EMA_ALPHA) * smoothYRef.current;
 
               const mirroredX = 100 - smoothXRef.current * 100;
 
@@ -188,6 +190,8 @@ function useMediaPipeHands(enabled) {
             } else {
               smoothXRef.current = 0;
               smoothYRef.current = 0;
+              prevXRef.current = null;
+              prevYRef.current = null;
               setHandState(prev => prev.isVisible ? { ...EMPTY_HAND_STATE } : prev);
             }
           } catch (e) {
