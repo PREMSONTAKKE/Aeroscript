@@ -7,8 +7,8 @@ frontend/dist/
 server/node_modules/
 server/error_log.txt
 server/ml/dataset
-server/ml/model
-server/ml/model-word
+#server/ml/model
+#server/ml/model-word
 server/ml/train
 __pycache__/
 *.pyc
