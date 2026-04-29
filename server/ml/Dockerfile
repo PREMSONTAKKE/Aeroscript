@@ -6,8 +6,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py /app/
+COPY model /app/model
 
-# Model files are mounted as a Railway volume at /app/model
-# Or committed to git with: git add -f server/ml/model/*
+ENV PORT=5001
 
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "2", "app:app"]
+EXPOSE 5001
+
+CMD gunicorn --bind 0.0.0.0:5001 --workers 2 app:app
