@@ -52,13 +52,13 @@ def predict():
         # Get top 3 predictions
         top_indices = proba.argsort()[-3:][::-1]
         
-        predictions = [
-            {
-                "label": labels[i],
-                "confidence": round(float(proba[i]) * 100
-            }
-            for i in top_indices
-        ]
+        predictions = []
+        for idx in top_indices:
+          prob = float(proba[idx])
+          predictions.append({
+            "label": labels[idx],
+            "confidence": round(prob * 100)
+          })
         
         return jsonify({"predictions": predictions})
     
@@ -78,12 +78,12 @@ def load_models():
         
         if not os.path.exists(labels_path):
             status = "labels.json not found"
-            print(f"⚠️ {status}")
+            print("[WARN] " + status)
             return
         
         if not os.path.exists(model_path):
             status = "model file not found"
-            print(f"⚠️ {status}")
+            print("[WARN] " + status)
             return
         
         # Load labels
@@ -94,11 +94,11 @@ def load_models():
         classifier = joblib.load(model_path)
         
         status = f"Model loaded: {len(labels)} classes"
-        print(f"✅ ML Service ready: {len(labels)} classes")
+        print("[OK] ML Service ready: " + status)
         
     except Exception as e:
         status = f"Failed to load: {str(e)}"
-        print(f"❌ {status}")
+        print("[ERROR] " + status)
 
 if __name__ == '__main__':
     load_models()
