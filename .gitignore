@@ -12,3 +12,4 @@ server/ml/model-word
 server/ml/train
 __pycache__/
 *.pyc
+data/
