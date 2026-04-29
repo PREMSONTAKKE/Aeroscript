@@ -5,8 +5,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py /app/
-COPY model /app/model
+COPY server/ml/app.py /app/app.py
+COPY server/ml/model /app/model
 
 ENV PORT=5001
 
