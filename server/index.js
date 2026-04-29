@@ -10,8 +10,6 @@ const { Server } = require('socket.io');
 
 const User = require('./models/User');
 const Session = require('./models/Session');
-const RecognitionService = require('./ml/services/recognitionService');
-const WordRecognitionService = require('./ml/services/wordRecognitionService');
 
 const app = express();
 const server = http.createServer(app);
@@ -43,8 +41,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const recognitionService = new RecognitionService();
-const wordRecognitionService = new WordRecognitionService();
+const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
 
 const buildAuthPayload = (user) => ({ userId: user._id, email: user.email });
 
@@ -64,12 +61,6 @@ mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 })
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-recognitionService.loadModel(path.join(__dirname, 'ml', 'model'));
-// Ensure correct model loading
-console.log('Loading ML models from:', path.join(__dirname, 'ml', 'model-word'));
-wordRecognitionService.loadModel(path.join(__dirname, 'ml', 'model-word'));
-
-const datasetPath = path.join(__dirname, 'ml', 'dataset', 'samples.json');
 const Party = require('./models/Party');
 
 const ensureDatasetFile = () => {
@@ -554,47 +545,32 @@ const auth = (req, res, next) => {
 };
 
 app.post('/api/ml/predict', auth, async (req, res) => {
-  if (!recognitionService.ready) {
-    return res.status(503).json({
-      error: 'ML service unavailable',
-      details: recognitionService.statusMessage
-    });
-  }
-
   try {
     const { pixels } = req.body;
     if (!Array.isArray(pixels) || pixels.length !== 28 * 28) {
       return res.status(400).json({ error: 'A 28x28 image payload is required' });
     }
 
-    const predictions = await recognitionService.predict(pixels);
-    res.json({ predictions });
+    const mlResponse = await fetch(`${ML_API_URL}/api/ml/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pixels })
+    });
+
+    if (!mlResponse.ok) {
+      throw new Error(`ML API error: ${mlResponse.status}`);
+    }
+
+    const data = await mlResponse.json();
+    res.json(data);
   } catch (err) {
-    console.error('❌ Prediction error:', err);
+    console.error('ML prediction error:', err.message);
     res.status(500).json({ error: 'Prediction failed', details: err.message });
   }
 });
 
 app.post('/api/ml/predict-word', auth, async (req, res) => {
-  if (!wordRecognitionService.ready) {
-    return res.status(503).json({
-      error: 'Word ML service unavailable',
-      details: wordRecognitionService.statusMessage
-    });
-  }
-
-  try {
-    const { pixels, width, height } = req.body;
-    if (!Array.isArray(pixels) || !Number.isInteger(width) || !Number.isInteger(height)) {
-      return res.status(400).json({ error: 'Width, height, and grayscale pixels are required for word prediction' });
-    }
-
-    const predictions = await wordRecognitionService.predict(pixels, width, height);
-    res.json({ predictions });
-  } catch (err) {
-    console.error('❌ Word prediction error:', err);
-    res.status(500).json({ error: 'Word prediction failed', details: err.message });
-  }
+  res.status(501).json({ error: 'Word recognition not yet implemented' });
 });
 
 app.post('/api/ml/samples', auth, async (req, res) => {
