@@ -8,17 +8,24 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-# Load models at startup
-MODEL_DIR = os.path.join(os.path.dirname(__file__), 'model')
-classifier = None
-labels = []
-status = "Loading..."
+# API Key for authentication
+ML_API_KEY = os.environ.get('ML_API_KEY', '')
+
+def require_api_key(f):
+    def wrapper(*args, **kwargs):
+        provided_key = request.headers.get('X-API-Key') or request.json.get('api_key')
+        if ML_API_KEY and provided_key != ML_API_KEY:
+            return jsonify({"error": "Invalid API key"}), 401
+        return f(*args, **kwargs)
+    wrapper.__name__ = f.__name__
+    return wrapper
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok", "ml_ready": classifier is not None})
 
 @app.route('/api/ml/status', methods=['GET'])
+@require_api_key
 def ml_status():
     global status
     return jsonify({
@@ -27,6 +34,7 @@ def ml_status():
     })
 
 @app.route('/api/ml/predict', methods=['POST'])
+@require_api_key
 def predict():
     global classifier, labels
     

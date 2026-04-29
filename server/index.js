@@ -42,6 +42,7 @@ app.use((req, res, next) => {
 });
 
 const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
+const ML_API_KEY = process.env.ML_API_KEY || '';
 
 const buildAuthPayload = (user) => ({ userId: user._id, email: user.email });
 
@@ -553,7 +554,10 @@ app.post('/api/ml/predict', auth, async (req, res) => {
 
     const mlResponse = await fetch(`${ML_API_URL}/api/ml/predict`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-API-Key': ML_API_KEY
+      },
       body: JSON.stringify({ pixels })
     });
 
