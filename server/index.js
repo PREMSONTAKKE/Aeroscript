@@ -64,6 +64,8 @@ mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 })
 
 const Party = require('./models/Party');
 
+const datasetPath = path.join(__dirname, 'ml', 'dataset', 'samples.json');
+
 const ensureDatasetFile = () => {
   const fs = require('fs');
   const datasetDir = path.dirname(datasetPath);
