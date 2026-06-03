@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, LogOut, Moon, Sun, User, Palette, LayoutGrid, History, SlidersHorizontal, Menu, HelpCircle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AeroCanvas from '../components/AeroCanvas/AeroCanvas';
-import PredictionOverlay from '../components/PredictionOverlay';
 import ConfirmDialog from '../components/workspace/ConfirmDialog';
 import ExportDialog from '../components/workspace/ExportDialog';
 import ModeSidebar from '../components/workspace/ModeSidebar';
@@ -24,7 +23,7 @@ import useMediaPipeHands from '../hooks/useMediaPipeHands';
 import useToast from '../hooks/useToast';
 import { useDrawingAnalytics } from '../hooks/useDrawingAnalytics';
 import { useParty } from '../hooks/useParty';
-import { deleteSession, fetchHistory, predictCharacters, saveSession, updateSession } from '../services/api';
+import { deleteSession, fetchHistory, saveSession, updateSession } from '../services/api';
 import { profileApi } from '../services/presetsApi';
 
 const mapSession = (session) => ({
@@ -42,7 +41,6 @@ function WorkspaceView() {
   const { mode } = useParams();
   const navigate = useNavigate();
   const canvasRef = useRef(null);
-  const recognitionTimeoutRef = useRef(null);
   const { user, logout } = useAuth();
   const [theme, setTheme] = useState('dark');
   const [brushColor, setBrushColor] = useState('#e2e8f0');
@@ -53,9 +51,6 @@ function WorkspaceView() {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [predictions, setPredictions] = useState([]);
-  const [isRecognizing, setIsRecognizing] = useState(false);
-  const [recognitionError, setRecognitionError] = useState('');
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
@@ -197,8 +192,6 @@ function WorkspaceView() {
     setBrushWidth(modeConfig.defaultBrushWidth);
     setInkType(modeConfig.inks[0]);
     setBrushColor(modeConfig.colors[0] || '#e2e8f0');
-    setPredictions([]);
-    setRecognitionError('');
     setActiveSessionId(null);
     canvasRef.current?.clear();
   }, [modeConfig]);
@@ -218,9 +211,6 @@ function WorkspaceView() {
   }, [isDirty]);
 
   useEffect(() => () => {
-    if (recognitionTimeoutRef.current) {
-      clearTimeout(recognitionTimeoutRef.current);
-    }
     trackSessionEnd();
   }, [trackSessionEnd]);
 
@@ -277,44 +267,6 @@ function WorkspaceView() {
     });
   };
 
-  const requestPrediction = async () => {
-    if (!modeConfig.showPredictions || !user?.token) {
-      return;
-    }
-
-    const pixels = canvasRef.current?.getRecognitionPixels();
-    if (!pixels) {
-      setPredictions([]);
-      return;
-    }
-
-    setIsRecognizing(true);
-    setRecognitionError('');
-    try {
-      const data = await predictCharacters(user.token, pixels);
-      setPredictions(Array.isArray(data.predictions) ? data.predictions : []);
-    } catch (error) {
-      setPredictions([]);
-      setRecognitionError(error.message || 'Prediction failed');
-    } finally {
-      setIsRecognizing(false);
-    }
-  };
-
-  const schedulePrediction = () => {
-    if (!modeConfig.showPredictions) {
-      return;
-    }
-
-    if (recognitionTimeoutRef.current) {
-      clearTimeout(recognitionTimeoutRef.current);
-    }
-
-    recognitionTimeoutRef.current = setTimeout(() => {
-      requestPrediction();
-    }, 900);
-  };
-
   const refreshHistory = async () => {
     if (!user?.token) {
       return;
@@ -341,8 +293,6 @@ function WorkspaceView() {
 
   const clearActiveCanvas = () => {
     setActiveSessionId(null);
-    setPredictions([]);
-    setRecognitionError('');
     if (currentParty) {
       partyClearCanvas();
     }
@@ -380,8 +330,6 @@ function WorkspaceView() {
   };
 
   const handleStrokeCommit = (nextStrokes, committedStroke) => {
-    schedulePrediction();
-
     if (committedStroke) {
       trackStroke({
         inkType,
@@ -853,14 +801,6 @@ function WorkspaceView() {
                 canvasRef.current?.clear();
               }}
             />
-
-            {modeConfig.showPredictions && (
-              <PredictionOverlay
-                predictions={predictions}
-                isRecognizing={isRecognizing}
-                error={recognitionError}
-              />
-            )}
 
             {Object.entries(remoteCursors).map(([socketId, cursor]) => (
               <div

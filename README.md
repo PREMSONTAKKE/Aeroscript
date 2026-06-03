@@ -1,6 +1,6 @@
 # Aeroscript
 
-A real-time collaborative drawing web application with AI-powered handwriting recognition.
+A real-time collaborative digital canvas with air-writing and hand-tracking.
 
 ## Features
 
@@ -9,7 +9,7 @@ A real-time collaborative drawing web application with AI-powered handwriting re
 - **Analytics** - Track your drawing statistics
 - **Session History** - Save and load your drawings
 - **Export** - Export to PNG, JPG, or PDF
-- **ML Predictions** - AI-powered handwriting recognition
+- **Hand Tracking** - Air-writing via MediaPipe hand tracking
 
 ## Quick Start
 
@@ -77,15 +77,11 @@ Set environment variables:
 - `PORT` - Server port (default: 5002)
 - `NODE_ENV` - `production`
 
-Optional (only when ML is enabled):
-- `ML_API_URL` - URL of the Python ML microservice
-- `ML_API_KEY` - API key for the ML microservice
-
 ## Tech Stack
 
 - **Frontend**: React, Vite, Tailwind CSS, Google OAuth
 - **Backend**: Express, Socket.IO, MongoDB, Firebase Admin
-- **ML**: TensorFlow.js (browser-based hand tracking), Python microservice (optional)
+- **Hand Tracking**: MediaPipe Tasks Vision (browser-based)
 - **Auth**: JWT, Google OAuth (Google Identity Services), Firebase Admin (server-side verification)
 
 ## License

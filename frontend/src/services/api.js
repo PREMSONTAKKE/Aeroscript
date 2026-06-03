@@ -68,12 +68,3 @@ export async function deleteSession(token, id) {
   return parseJson(response);
 }
 
-export async function predictCharacters(token, pixels) {
-  const response = await fetch(`${API_BASE}/ml/predict`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify({ pixels })
-  });
-
-  return parseJson(response);
-}

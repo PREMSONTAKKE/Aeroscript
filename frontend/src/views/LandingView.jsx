@@ -151,7 +151,7 @@ const LandingView = () => {
     },
     {
       title: 'Write',
-      description: 'AI-enhanced writing environment with character recognition and predictive intelligence.',
+      description: 'Focused writing workspace with session history and note-taking tools.',
       icon: Type,
       mode: 'write',
       colorClass: 'from-emerald-500 to-teal-500 text-emerald-400'

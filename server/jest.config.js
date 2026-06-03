@@ -4,7 +4,6 @@ module.exports = {
   collectCoverageFrom: [
     '**/*.js',
     '!node_modules/**',
-    '!ml/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],

@@ -13,7 +13,6 @@ export const MODE_CONFIGS = {
     inks: ['Calligraphy', 'Graphite', 'Laser'],
     defaultBrushWidth: 2.4,
     widthRange: [1.5, 7],
-    showPredictions: false,
     supportsParty: false,
     guideTitle: 'Signing Profile',
     guidePoints: [
@@ -34,7 +33,6 @@ export const MODE_CONFIGS = {
     inks: ['Graphite', 'Laser', 'Marker', 'Neon', 'Pencil'],
     defaultBrushWidth: 4,
     widthRange: [1, 24],
-    showPredictions: false,
     supportsParty: true,
     guideTitle: 'Studio Profile',
     guidePoints: [
@@ -47,7 +45,7 @@ export const MODE_CONFIGS = {
     label: 'Write Mode',
     shortLabel: 'Write',
     icon: Type,
-    description: 'Writing workspace with recognition feedback and session history per mode.',
+    description: 'Writing workspace with session history per mode.',
     accent: 'from-emerald-400/25 via-emerald-500/10 to-transparent',
     accentColor: '#34d399',
     accentGlow: 'rgba(52, 211, 153, 0.2)',
@@ -55,12 +53,10 @@ export const MODE_CONFIGS = {
     inks: ['Graphite', 'Marker', 'Laser', 'Pencil', 'Calligraphy'],
     defaultBrushWidth: 5,
     widthRange: [1, 18],
-    showPredictions: true,
     supportsParty: false,
     guideTitle: 'Writing Profile',
     guidePoints: [
-      'Predictions appear after a short pause in writing.',
-      'Balanced width range keeps characters readable for the model.',
+      'Balanced width range for neat handwriting.',
       'Marker and pencil inks are useful for character practice.'
     ]
   }
