@@ -263,10 +263,8 @@ const AuthView = () => {
                       setError(data.error || 'Firebase authentication failed');
                     }
                   } catch (err) {
-                    if (err.code !== 'auth/popup-closed-by-user') {
-                      console.error('Firebase Auth Error:', err);
-                      setError('Authentication failed. Check server logs.');
-                    }
+                    console.error('Firebase Auth Error:', err);
+                    setError(err.message || 'Authentication failed. Check server logs.');
                   }
                 }}
                 className="w-full flex items-center justify-center gap-3 py-4 px-6 rounded-xl border border-white/10 bg-white/5 text-white font-medium text-sm uppercase tracking-widest hover:bg-white/10 hover:border-white/20 active:scale-[0.98] transition-all"
