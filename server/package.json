@@ -8,7 +8,8 @@
     "train-ml": "python ml/train_emnist.py",
     "parse-iam-online": "node ml/scripts/parseIamOnline.js",
     "train-word-ml": "python ml/trainiamwordsgpu.py",
-    "train-word-ml-gpu": "python ml/trainiamwordsgpu.py"
+    "train-word-ml-gpu": "python ml/trainiamwordsgpu.py",
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",
