@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const http = require('http');
@@ -16,19 +15,29 @@ app.set('trust proxy', 1);
 const server = http.createServer(app);
 app.use(express.json({ limit: '50mb' }));
 
-const corsOrigins = process.env.CORS_ORIGINS
+const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-  : '*';
+  : null;
 
-app.use(cors({
-  origin: corsOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (!allowedOrigins || allowedOrigins.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!allowedOrigins) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 const io = new Server(server, {
   cors: {
-    origin: corsOrigins,
+    origin: allowedOrigins || '*',
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -525,44 +534,6 @@ app.post('/api/auth/verify-firebase', async (req, res) => {
   } catch (err) {
     console.error('Firebase token verification error:', err.message);
     res.status(401).json({ error: 'Firebase token verification failed' });
-  }
-});
-
-const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-app.post('/api/auth/google', async (req, res) => {
-  const { credential } = req.body;
-  try {
-    if (!ensureDatabaseReady(res)) return;
-
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      return res.status(500).json({ error: 'Google OAuth not configured on server' });
-    }
-
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
-    const googleId = payload.sub;
-    const email = payload.email;
-
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
-
-    if (!user) {
-      user = new User({ email, googleId });
-      await user.save();
-    } else if (!user.googleId) {
-      user.googleId = googleId;
-      await user.save();
-    }
-
-    const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, email: user.email, userId: user._id });
-  } catch (err) {
-    console.error('Google auth error:', err.message);
-    res.status(401).json({ error: 'Google authentication failed', details: err.message });
   }
 });
 
