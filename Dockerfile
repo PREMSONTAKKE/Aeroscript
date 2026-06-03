@@ -1,15 +1,12 @@
-FROM python:3.11-slim
+FROM node:20-alpine
 
 WORKDIR /app
 
-COPY server/ml/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY server/package*.json ./
+RUN npm ci --omit=dev
 
-COPY server/ml/app.py /app/app.py
-COPY server/ml/model /app/model
+COPY server/ . .
 
-ENV PORT=5001
+EXPOSE 5002
 
-EXPOSE 5001
-
-CMD gunicorn --bind 0.0.0.0:5001 --workers 2 app:app
+CMD ["node", "index.js"]
