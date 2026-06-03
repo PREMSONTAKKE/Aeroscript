@@ -125,23 +125,6 @@ router.get('/:shareId', async (req, res) => {
   }
 });
 
-router.post('/:shareId/track', auth, async (req, res) => {
-  try {
-    const { shareId } = req.params;
-    const { platform } = req.body;
-
-    const share = inMemoryShares.get(shareId);
-    if (!share) {
-      return res.status(404).json({ error: 'Share not found' });
-    }
-
-    res.json({ success: true, message: 'Share tracked' });
-  } catch (err) {
-    console.error('Track share error:', err);
-    res.status(500).json({ error: 'Failed to track share' });
-  }
-});
-
 router.get('/:shareId/download', async (req, res) => {
   try {
     const { shareId } = req.params;

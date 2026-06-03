@@ -42,9 +42,6 @@ app.use((req, res, next) => {
   next();
 });
 
-const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
-const ML_API_KEY = process.env.ML_API_KEY || '';
-
 const buildAuthPayload = (user) => ({ userId: user._id, email: user.email });
 
 const isDatabaseReady = () => mongoose.connection.readyState === 1;
@@ -64,17 +61,6 @@ mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 })
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
 const Party = require('./models/Party');
-
-const datasetPath = path.join(__dirname, 'ml', 'dataset', 'samples.json');
-
-const ensureDatasetFile = () => {
-  const fs = require('fs');
-  const datasetDir = path.dirname(datasetPath);
-  if (!fs.existsSync(datasetDir)) fs.mkdirSync(datasetDir, { recursive: true });
-  if (!fs.existsSync(datasetPath)) fs.writeFileSync(datasetPath, '[]');
-};
-
-ensureDatasetFile();
 
 const partyRooms = new Map();
 const partyBoards = new Map();
@@ -448,7 +434,6 @@ io.on('connection', (socket) => {
         });
       }
 
-    } else {
     }
   });
 });
@@ -593,70 +578,6 @@ const auth = (req, res, next) => {
     res.status(401).json({ error: 'Token is not valid' });
   }
 };
-
-app.post('/api/ml/predict', auth, async (req, res) => {
-  try {
-    const { pixels } = req.body;
-    if (!Array.isArray(pixels) || pixels.length !== 28 * 28) {
-      return res.status(400).json({ error: 'A 28x28 image payload is required' });
-    }
-
-    const mlResponse = await fetch(`${ML_API_URL}/api/ml/predict`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-API-Key': ML_API_KEY
-      },
-      body: JSON.stringify({ pixels })
-    });
-
-    if (!mlResponse.ok) {
-      throw new Error(`ML API error: ${mlResponse.status}`);
-    }
-
-    const data = await mlResponse.json();
-    res.json(data);
-  } catch (err) {
-    console.error('ML prediction error:', err.message);
-    res.status(500).json({ error: 'Prediction failed', details: err.message });
-  }
-});
-
-app.post('/api/ml/predict-word', auth, async (req, res) => {
-  res.status(501).json({ error: 'Word recognition not yet implemented' });
-});
-
-app.post('/api/ml/samples', auth, async (req, res) => {
-  const fs = require('fs');
-
-  try {
-    const { label, strokes } = req.body;
-    const trimmedLabel = typeof label === 'string' ? label.trim() : '';
-
-    if (!trimmedLabel) {
-      return res.status(400).json({ error: 'A label is required' });
-    }
-
-    if (!Array.isArray(strokes) || strokes.length === 0) {
-      return res.status(400).json({ error: 'Stroke data is required' });
-    }
-
-    ensureDatasetFile();
-    const existing = JSON.parse(fs.readFileSync(datasetPath, 'utf8'));
-    existing.push({
-      label: trimmedLabel,
-      strokes,
-      userId: req.userId,
-      createdAt: new Date().toISOString()
-    });
-    fs.writeFileSync(datasetPath, JSON.stringify(existing, null, 2));
-
-    res.json({ message: 'Sample saved', count: existing.length });
-  } catch (err) {
-    console.error('❌ Sample save error:', err);
-    res.status(500).json({ error: 'Failed to save sample', details: err.message });
-  }
-});
 
 // --- Unified Bridge Routes (Private Workspace) ---
 app.post('/api/save', auth, async (req, res) => {

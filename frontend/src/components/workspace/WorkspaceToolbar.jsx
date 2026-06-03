@@ -90,31 +90,7 @@ function WorkspaceToolbar({
           </span>
         </div>
 
-        {/* Smooth */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-slate-400 w-10 dark:text-slate-500">Smooth</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="1" 
-            step="0.1" 
-            defaultValue="0.5" 
-            className="w-14 accent-slate-500 dark:accent-slate-400" 
-          />
-        </div>
 
-        {/* Pressure */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-slate-400 w-10 dark:text-slate-500">Pressure</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="1" 
-            step="0.1" 
-            defaultValue="0" 
-            className="w-14 accent-slate-500 dark:accent-slate-400" 
-          />
-        </div>
       </div>
     </div>
   );

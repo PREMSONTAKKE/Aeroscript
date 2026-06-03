@@ -37,12 +37,6 @@ class PartyService {
       upgrade: true
     });
 
-    this.socket.on('connect', () => {
-    });
-
-    this.socket.on('disconnect', () => {
-    });
-
     this.socket.on('connect_error', (err) => {
       console.error('Socket connection error:', err);
     });
