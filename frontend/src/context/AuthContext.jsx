@@ -29,12 +29,12 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
-      return saved ? normalizeUser(JSON.parse(saved)) : null;
+      if (saved) return normalizeUser(JSON.parse(saved));
     } catch {
       localStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY);
-      return null;
     }
+    return { email: 'Guest', userId: 'guest' };
   });
 
   const login = (userData, remember = true) => {
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    setUser(null);
+    setUser({ email: 'Guest', userId: 'guest' });
     localStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_KEY);
   };
