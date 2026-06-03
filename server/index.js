@@ -12,6 +12,7 @@ const User = require('./models/User');
 const Session = require('./models/Session');
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 app.use(express.json({ limit: '50mb' }));
 
@@ -495,6 +496,53 @@ app.post('/api/auth/signin', async (req, res) => {
   }
 });
 
+let firebaseAdminApp = null;
+let firebaseAdminAuth = null;
+
+try {
+  const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (serviceAccountRaw) {
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) {
+      const serviceAccount = JSON.parse(serviceAccountRaw);
+      firebaseAdminApp = admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      firebaseAdminAuth = admin.auth(firebaseAdminApp);
+      console.log('Firebase Admin initialized');
+    }
+  }
+} catch (e) {
+  console.warn('Firebase Admin not configured:', e.message);
+}
+
+app.post('/api/auth/verify-firebase', async (req, res) => {
+  const { idToken } = req.body;
+  try {
+    if (!firebaseAdminAuth) {
+      return res.status(500).json({ error: 'Firebase Admin not configured on server' });
+    }
+    if (!ensureDatabaseReady(res)) return;
+
+    const decoded = await firebaseAdminAuth.verifyIdToken(idToken);
+    const firebaseUid = decoded.uid;
+    const email = decoded.email;
+
+    let user = await User.findOne({ $or: [{ firebaseUid }, { email }] });
+    if (!user) {
+      user = new User({ email, firebaseUid });
+      await user.save();
+    } else if (!user.firebaseUid) {
+      user.firebaseUid = firebaseUid;
+      await user.save();
+    }
+
+    const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
+    res.json({ token, email: user.email, userId: user._id });
+  } catch (err) {
+    console.error('Firebase token verification error:', err.message);
+    res.status(401).json({ error: 'Firebase token verification failed' });
+  }
+});
+
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -504,7 +552,6 @@ app.post('/api/auth/google', async (req, res) => {
     if (!ensureDatabaseReady(res)) return;
 
     if (!process.env.GOOGLE_CLIENT_ID) {
-      console.error('❌ GOOGLE_CLIENT_ID not configured in server');
       return res.status(500).json({ error: 'Google OAuth not configured on server' });
     }
 
@@ -529,7 +576,7 @@ app.post('/api/auth/google', async (req, res) => {
     const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, email: user.email, userId: user._id });
   } catch (err) {
-    console.error('❌ Google auth error:', err.message);
+    console.error('Google auth error:', err.message);
     res.status(401).json({ error: 'Google authentication failed', details: err.message });
   }
 });
@@ -691,6 +738,9 @@ app.put('/api/sessions/:id', auth, async (req, res) => {
 
 const partyRoutes = require('./routes/party');
 app.use('/api/party', partyRoutes);
+
+const shareRoutes = require('./routes/share');
+app.use('/api/share', shareRoutes);
 
 const AnalyticsDaily = require('./models/AnalyticsDaily');
 const BrushPreset = require('./models/BrushPreset');

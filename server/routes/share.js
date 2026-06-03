@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const UserProfile = require('../models/UserProfile');
+const crypto = require('crypto');
+const User = require('../models/User');
+const Session = require('../models/Session');
 
 const auth = async (req, res, next) => {
   try {
@@ -11,32 +13,41 @@ const auth = async (req, res, next) => {
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
+    req.email = decoded.email;
     next();
   } catch (err) {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
 
-router.post('/share', auth, async (req, res) => {
+const generateShareId = () => {
+  return crypto.randomBytes(8).toString('hex');
+};
+
+const inMemoryShares = new Map();
+
+router.post('/generate', auth, async (req, res) => {
   try {
-    const { artworkData, thumbnail, title, platform } = req.body;
-    
+    const { artworkData, thumbnail, title, platform, mode } = req.body;
+
     if (!artworkData && !thumbnail) {
       return res.status(400).json({ error: 'Artwork data or thumbnail required' });
     }
-    
+
+    const shareId = generateShareId();
+
     const shareLinks = {};
-    
-    if (platform === 'instagram' || !platform) {
+
+    if (!platform || platform === 'instagram') {
       shareLinks.instagram = {
         type: 'download',
         message: 'Download image for Instagram upload',
         instructions: 'Save the image and upload to Instagram from your mobile device',
-        downloadUrl: `/api/share/download?artwork=${encodeURIComponent(artworkData || thumbnail)}`
+        downloadUrl: `/api/share/${shareId}/download`
       };
     }
-    
-    if (platform === 'pinterest' || !platform) {
+
+    if (!platform || platform === 'pinterest') {
       const pinterestText = encodeURIComponent(
         `Check out my artwork "${title || 'AeroScript Creation'}" created with AeroScript! ✨`
       );
@@ -46,8 +57,8 @@ router.post('/share', auth, async (req, res) => {
         message: 'Open Pinterest to share'
       };
     }
-    
-    if (platform === 'twitter' || !platform) {
+
+    if (!platform || platform === 'twitter') {
       const twitterText = encodeURIComponent(
         `Just created something cool with @AeroScript! "${title || 'My artwork'}" 🎨`
       );
@@ -57,89 +68,108 @@ router.post('/share', auth, async (req, res) => {
         message: 'Share on Twitter/X'
       };
     }
-    
-    if (platform === 'facebook' || !platform) {
+
+    if (!platform || platform === 'facebook') {
       shareLinks.facebook = {
         type: 'external',
         url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://aeroscript.app')}`,
         message: 'Share on Facebook'
       };
     }
-    
-    let profile = await UserProfile.findOne({ userId: req.userId });
-    if (profile) {
-      await profile.updateStatistics({ artworks: 1 });
-    }
-    
+
+    inMemoryShares.set(shareId, {
+      shareId,
+      author: req.userId,
+      title: title || 'Untitled',
+      artworkData,
+      thumbnail,
+      mode: mode || 'draw',
+      createdAt: new Date().toISOString(),
+      downloads: 0
+    });
+
     res.json({
       success: true,
+      shareId,
       shareLinks,
       message: 'Share links generated successfully'
     });
   } catch (err) {
-    console.error('Share error:', err);
+    console.error('Generate share error:', err);
     res.status(500).json({ error: 'Failed to generate share links' });
   }
 });
 
-router.get('/download', auth, async (req, res) => {
+router.get('/:shareId', async (req, res) => {
   try {
-    const { artwork, format = 'png' } = req.query;
-    
-    if (!artwork) {
-      return res.status(400).json({ error: 'Artwork data required' });
+    const { shareId } = req.params;
+    const share = inMemoryShares.get(shareId);
+
+    if (!share) {
+      return res.status(404).json({ error: 'Share not found' });
     }
-    
-    const imageData = artwork.startsWith('data:') 
-      ? artwork 
-      : `data:image/png;base64,${artwork}`;
-    
-    const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
-    
-    if (!matches) {
-      return res.status(400).json({ error: 'Invalid image data' });
-    }
-    
-    const mimeType = matches[1];
-    const base64Data = matches[2];
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    res.setHeader('Content-Type', `image/${mimeType}`);
-    res.setHeader('Content-Disposition', 'attachment; filename=aeroscript-artwork.png');
-    res.send(buffer);
+
+    res.json({
+      share: {
+        shareId: share.shareId,
+        title: share.title,
+        mode: share.mode,
+        thumbnail: share.thumbnail,
+        createdAt: share.createdAt,
+        author: share.author
+      }
+    });
   } catch (err) {
-    console.error('Download error:', err);
-    res.status(500).json({ error: 'Failed to download artwork' });
+    console.error('Get share error:', err);
+    res.status(500).json({ error: 'Failed to get share' });
   }
 });
 
-router.post('/export', auth, async (req, res) => {
+router.post('/:shareId/track', auth, async (req, res) => {
   try {
-    const { artworkData, thumbnail, title, settings } = req.body;
-    
-    const exportData = {
-      version: '1.0',
-      title: title || 'Untitled',
-      exportedAt: new Date().toISOString(),
-      author: req.userId,
-      artwork: artworkData,
-      thumbnail: thumbnail,
-      settings: settings || {},
-      metadata: {
-        app: 'AeroScript',
-        format: 'aeroscript-project'
-      }
-    };
-    
-    const jsonString = JSON.stringify(exportData);
-    const buffer = Buffer.from(jsonString, 'utf-8');
-    
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="${(title || 'artwork').replace(/[^a-z0-9]/gi, '_')}.aeroscript"`);
+    const { shareId } = req.params;
+    const { platform } = req.body;
+
+    const share = inMemoryShares.get(shareId);
+    if (!share) {
+      return res.status(404).json({ error: 'Share not found' });
+    }
+
+    res.json({ success: true, message: 'Share tracked' });
+  } catch (err) {
+    console.error('Track share error:', err);
+    res.status(500).json({ error: 'Failed to track share' });
+  }
+});
+
+router.get('/:shareId/download', async (req, res) => {
+  try {
+    const { shareId } = req.params;
+    const share = inMemoryShares.get(shareId);
+
+    if (!share || !share.artworkData) {
+      return res.status(404).json({ error: 'Share not found' });
+    }
+
+    const imageData = share.artworkData.startsWith('data:')
+      ? share.artworkData
+      : `data:image/png;base64,${share.artworkData}`;
+
+    const matches = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).json({ error: 'Invalid image data' });
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    res.setHeader('Content-Type', `image/${mimeType}`);
+    res.setHeader('Content-Disposition', `attachment; filename="${(share.title || 'aeroscript-artwork').replace(/[^a-z0-9]/gi, '_')}.png"`);
     res.send(buffer);
   } catch (err) {
-    console.error('Export error:', err);
-    res.status(500).json({ error: 'Failed to export artwork' });
+    console.error('Download share error:', err);
+    res.status(500).json({ error: 'Failed to download share' });
   }
 });
 
