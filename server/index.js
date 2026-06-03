@@ -528,44 +528,6 @@ app.post('/api/auth/verify-firebase', async (req, res) => {
   }
 });
 
-const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-app.post('/api/auth/google', async (req, res) => {
-  const { credential } = req.body;
-  try {
-    if (!ensureDatabaseReady(res)) return;
-
-    if (!process.env.GOOGLE_CLIENT_ID) {
-      return res.status(500).json({ error: 'Google OAuth not configured on server' });
-    }
-
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
-    const googleId = payload.sub;
-    const email = payload.email;
-
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
-
-    if (!user) {
-      user = new User({ email, googleId });
-      await user.save();
-    } else if (!user.googleId) {
-      user.googleId = googleId;
-      await user.save();
-    }
-
-    const token = jwt.sign(buildAuthPayload(user), process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, email: user.email, userId: user._id });
-  } catch (err) {
-    console.error('Google auth error:', err.message);
-    res.status(401).json({ error: 'Google authentication failed', details: err.message });
-  }
-});
-
 // Middleware to verify JWT
 const auth = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');

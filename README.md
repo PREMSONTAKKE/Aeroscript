@@ -54,7 +54,6 @@ cd frontend && npm run dev
 Deploy `frontend/` to Vercel. Set environment variables:
 - `VITE_API_URL` - Your backend URL (e.g. `https://aeroscript-api.onrender.com`)
 - `VITE_SOCKET_URL` - Your backend URL (same as API)
-- `VITE_GOOGLE_CLIENT_ID` - Google OAuth Client ID (from Google Cloud Console)
 - `VITE_FIREBASE_API_KEY` - Firebase Web App API key
 - `VITE_FIREBASE_AUTH_DOMAIN` - Firebase auth domain
 - `VITE_FIREBASE_PROJECT_ID` - Firebase project ID
@@ -71,7 +70,6 @@ Deploy `server/` to Render as a Web Service. Configure:
 Set environment variables:
 - `MONGODB_URI` - MongoDB connection string
 - `JWT_SECRET` - Secret for JWT signing
-- `GOOGLE_CLIENT_ID` - Google OAuth Client ID (same as frontend `VITE_GOOGLE_CLIENT_ID`)
 - `CORS_ORIGINS` - Comma-separated list of allowed frontend origins
 - `FIREBASE_SERVICE_ACCOUNT` - Firebase service account JSON, minified to a single line
 - `PORT` - Server port (default: 5002)
@@ -79,10 +77,10 @@ Set environment variables:
 
 ## Tech Stack
 
-- **Frontend**: React, Vite, Tailwind CSS, Google OAuth
+- **Frontend**: React, Vite, Tailwind CSS, Firebase Auth
 - **Backend**: Express, Socket.IO, MongoDB, Firebase Admin
 - **Hand Tracking**: MediaPipe Tasks Vision (browser-based)
-- **Auth**: JWT, Google OAuth (Google Identity Services), Firebase Admin (server-side verification)
+- **Auth**: JWT, Firebase Auth with Google provider (server-side verification via Firebase Admin)
 
 ## License
 
